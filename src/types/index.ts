@@ -1,6 +1,6 @@
 export type Dimension = 'mind' | 'emotion' | 'curiosity' | 'power';
-export type ContestId = 'elegance' | 'wild' | 'creative';
-export type PetId = 'snow' | 'hamster' | 'raccoon';
+export type ContestId = 'elegance' | 'sweet' | 'dashing' | 'fresh' | 'charm';
+export type PetId = 'bubble' | 'flame' | 'sprout' | 'thunder' | 'rock';
 export type FoodId = 'sweet' | 'sour' | 'bitter' | 'spicy' | 'salty';
 export type GamePhase = 'lobby' | 'petSelect' | 'feeding' | 'confirm' | 'performance' | 'settlement';
 
@@ -17,7 +17,7 @@ export interface Contest {
   icon: string;
   description: string;
   weights: DimValues;
-  theme: 'elegance' | 'wild' | 'creative';
+  theme: ContestId;
   themeColor: string;
 }
 
@@ -26,6 +26,7 @@ export interface Pet {
   name: string;
   icon: string;
   description: string;
+  element: string;
   baseStats: DimValues;
   affection: number;
   tastePreference: Record<FoodId, number>;
@@ -56,8 +57,10 @@ export interface HighScore {
 
 export interface HighScores {
   elegance: HighScore | null;
-  wild: HighScore | null;
-  creative: HighScore | null;
+  sweet: HighScore | null;
+  dashing: HighScore | null;
+  fresh: HighScore | null;
+  charm: HighScore | null;
 }
 
 export interface PerformanceResult {

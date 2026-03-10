@@ -19,7 +19,7 @@ export function PetSelectPage() {
     if (selectedPet) setPhase('feeding');
   }
 
-  const contestColors: Record<string, string> = { elegance: '#e91e8c', wild: '#f57c00', creative: '#1565c0' };
+  const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
 
   return (
@@ -63,6 +63,7 @@ export function PetSelectPage() {
 
                 <h2 style={{ margin: '8px 0 4px', fontSize: 20, color: '#333', fontWeight: 800 }}>
                   {pet.icon} {pet.name}
+                  <span style={{ fontSize: 13, marginLeft: 8, background: '#f0f4ff', borderRadius: 8, padding: '2px 8px', color: '#5566aa', fontWeight: 600 }}>{pet.element}属性</span>
                 </h2>
                 <p style={{ color: '#777', fontSize: 12, margin: '0 0 12px', lineHeight: 1.6 }}>{pet.description}</p>
 

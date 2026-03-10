@@ -15,7 +15,7 @@ export function calculateSparkle(affection: number, mood: number): number {
 }
 
 export function calculateCritRate(mood: number): number {
-  return Math.min(0.5, mood * 0.005);
+  return Math.min(0.9, mood * 0.009);
 }
 
 export function calculateCritMultiplier(affection: number): number {

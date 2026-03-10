@@ -18,7 +18,7 @@ export function FeedingPage() {
   const critMult = calculateCritMultiplier(pet.affection);
   const foodBonus = calculateFoodBonus(selectedFoods);
 
-  const contestColors: Record<string, string> = { elegance: '#e91e8c', wild: '#f57c00', creative: '#1565c0' };
+  const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
 
   const moodColor = mood >= 70 ? '#4caf50' : mood >= 40 ? '#ff9800' : '#f44336';

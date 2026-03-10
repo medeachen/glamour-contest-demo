@@ -25,7 +25,7 @@ export function ConfirmPage() {
     power: pet.baseStats.power + foodBonus.power,
   };
 
-  const contestColors: Record<string, string> = { elegance: '#e91e8c', wild: '#f57c00', creative: '#1565c0' };
+  const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = contestColors[selectedContest];
 
   return (
