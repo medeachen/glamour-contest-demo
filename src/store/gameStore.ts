@@ -8,7 +8,7 @@ function loadHighScores(): HighScores {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { elegance: null, wild: null, creative: null };
+  return { elegance: null, sweet: null, dashing: null, fresh: null, charm: null };
 }
 
 function saveHighScoresToStorage(hs: HighScores) {

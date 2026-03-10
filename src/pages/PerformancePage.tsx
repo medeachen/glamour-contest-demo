@@ -67,7 +67,7 @@ export function PerformancePage() {
 
       {/* Stage */}
       <div style={{ position: 'relative' }}>
-        <StageScene petId={selectedPet} width={400} height={300} skillActive={skillVisible} skillColor={skillColor} />
+        <StageScene petId={selectedPet} contestId={selectedContest ?? undefined} width={400} height={300} skillActive={skillVisible} skillColor={skillColor} />
         <SkillEffect
           skillName={currentSkill >= 0 ? pet.skills[currentSkill]?.name ?? '' : ''}
           isCrit={isCrit}

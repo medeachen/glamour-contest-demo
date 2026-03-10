@@ -3,10 +3,20 @@ import { useGameStore } from '../store/gameStore';
 import { CONTESTS } from '../data/gameData';
 import type { ContestId } from '../types';
 
+const CONTEST_ELEMENT: Record<ContestId, string> = {
+  elegance: '岩',
+  sweet: '水',
+  dashing: '电',
+  fresh: '草',
+  charm: '火',
+};
+
 const CONTEST_BG: Record<ContestId, string> = {
-  elegance: 'linear-gradient(135deg, #fce4ec, #f8bbd0)',
-  wild: 'linear-gradient(135deg, #fff8e1, #ffe082)',
-  creative: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
+  elegance: 'linear-gradient(135deg, #d0d8f0, #b8c8e8)',
+  sweet: 'linear-gradient(135deg, #fce4ec, #f8bbd0)',
+  dashing: 'linear-gradient(135deg, #fff0e0, #ffd0a0)',
+  fresh: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
+  charm: 'linear-gradient(135deg, #fce4ec, #f9b8c0)',
 };
 
 export function LobbyPage() {
@@ -64,7 +74,10 @@ export function LobbyPage() {
                 border: '2px solid rgba(255,255,255,0.8)',
               }}>
               <div style={{ fontSize: 48, textAlign: 'center', marginBottom: 12 }}>{c.icon}</div>
-              <h2 style={{ margin: 0, fontSize: 20, textAlign: 'center', color: '#444', fontWeight: 800 }}>{c.name}</h2>
+              <h2 style={{ margin: 0, fontSize: 20, textAlign: 'center', color: '#444', fontWeight: 800 }}>
+                {c.name}
+                <span style={{ display: 'block', fontSize: 12, color: '#888', fontWeight: 500, marginTop: 2 }}>{CONTEST_ELEMENT[c.id]}属性对应</span>
+              </h2>
               <p style={{ color: '#666', fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 1.6 }}>{c.description}</p>
               <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(255,255,255,0.6)', borderRadius: 12 }}>
                 <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>属性加成</div>
