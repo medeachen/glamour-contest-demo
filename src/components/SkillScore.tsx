@@ -9,7 +9,8 @@ interface Props {
   color?: string;
 }
 
-const STAR_THRESHOLDS = [0.4, 0.65, 0.85]; // fraction of maxScore for 1/2/3 stars
+// Star thresholds as fractions of maxScore: 1-star at 40%, 2-star at 65%, 3-star at 85%
+const STAR_THRESHOLDS = [0.4, 0.65, 0.85];
 
 function getStars(fraction: number): number {
   if (fraction >= STAR_THRESHOLDS[2]) return 3;

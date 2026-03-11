@@ -17,7 +17,9 @@ export function ConfirmPage() {
   const moodInfo = getMoodInfo(mood);
   const foodBonus = calculateFoodBonus(selectedFoods);
   const recScore = calcRecommendScore(selectedPet, selectedContest);
-  const grade = scoreToGrade(recScore * 8); // rough pre-estimate for display badge
+  // recScore is 0–100; scoreToGrade thresholds go up to 800, so multiply by 8
+  // to map the recommendation percentage into the same score range for a pre-contest grade estimate.
+  const grade = scoreToGrade(recScore * 8);
   const gradeInfo = getGradeInfo(grade);
 
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };

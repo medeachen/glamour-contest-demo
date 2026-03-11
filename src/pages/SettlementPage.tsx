@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { PETS, CONTESTS } from '../data/gameData';
 import { getGradeInfo } from '../utils/scoring';
@@ -53,11 +53,23 @@ export function SettlementPage() {
       duration: 2 + Math.random() * 2,
     }))
   );
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setTimeout(() => setGradeVisible(true), 300);
     setTimeout(() => setContentVisible(true), 900);
   }, []);
+
+  // Focus the modal when opened; allow closing with Escape key
+  useEffect(() => {
+    if (showDetailsModal && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [showDetailsModal]);
+
+  function handleModalKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') setShowDetailsModal(false);
+  }
 
   if (!finalScore || !selectedPet || !selectedContest) { return null; }
 
@@ -191,15 +203,22 @@ export function SettlementPage() {
       {showDetailsModal && (
         <div
           onClick={() => setShowDetailsModal(false)}
+          onKeyDown={handleModalKeyDown}
+          role="dialog"
+          aria-modal="true"
+          aria-label="详细评分"
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20,
           }}
         >
           <div
+            ref={modalRef}
+            tabIndex={-1}
             onClick={e => e.stopPropagation()}
             style={{
               background: '#1a0a2e', borderRadius: 24, padding: 28, maxWidth: 600, width: '100%', maxHeight: '80vh', overflowY: 'auto',
               border: '1px solid rgba(255,255,255,0.15)',
+              outline: 'none',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>

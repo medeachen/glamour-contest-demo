@@ -40,9 +40,10 @@ export function PerformancePage() {
 
     for (let i = 0; i < 3; i++) {
       const delay = i * 3000;
-      const hasCrit = Math.random() < result.critRate;
 
       setTimeout(() => {
+        // Each skill gets its own independent crit roll
+        const hasCrit = Math.random() < result.critRate;
         setCurrentSkill(i);
         setSkillVisible(true);
         setIsCrit(hasCrit);

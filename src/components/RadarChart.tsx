@@ -117,8 +117,13 @@ export function RadarChart({
               r={size < 100 ? 3 : 4}
               fill={color}
               style={{ cursor: 'pointer' }}
+              tabIndex={0}
+              role="img"
+              aria-label={`${LABELS[i]}: ${Math.round(val)}`}
               onMouseEnter={() => setTooltip({ label: LABELS[i], value: val, x: p.x, y: p.y })}
               onMouseLeave={() => setTooltip(null)}
+              onFocus={() => setTooltip({ label: LABELS[i], value: val, x: p.x, y: p.y })}
+              onBlur={() => setTooltip(null)}
             />
           );
         })}
