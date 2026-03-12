@@ -5,9 +5,9 @@ interface Props {
 }
 
 const TIER_CONFIG = {
-  sad:     { emoji: '😢', label: '难过', bg: '#fce4ec', color: '#c62828' },
+  sad: { emoji: '😢', label: '难过', bg: '#fce4ec', color: '#c62828' },
   neutral: { emoji: '😐', label: '一般', bg: '#fff8e1', color: '#f57f17' },
-  happy:   { emoji: '😊', label: '高兴', bg: '#e8f5e9', color: '#2e7d32' },
+  happy: { emoji: '😊', label: '高兴', bg: '#e8f5e9', color: '#2e7d32' },
 };
 
 export function MoodBadge({ mood }: Props) {

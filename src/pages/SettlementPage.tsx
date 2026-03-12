@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { PETS, CONTESTS } from '../data/gameData';
+import { mapMoodToTier } from '../utils/scoring';
 
 const GRADE_COLORS: Record<string, string> = { S: '#ffd700', A: '#c0c0c0', B: '#cd7f32', C: '#7ec8e3', D: '#aaa' };
 const GRADE_BG: Record<string, string> = {
@@ -24,7 +25,7 @@ export function SettlementPage() {
   const { finalScore, selectedPet, selectedContest, highScores, resetGame } = useGameStore();
   const [gradeVisible, setGradeVisible] = useState(false);
   const [contentVisible, setContentVisible] = useState(false);
-  const [particles, setParticles] = useState<{ id: number; emoji: string; x: number; delay: number }[]>([]);
+  const [particles, setParticles] = useState<{ id: number; emoji: string; x: number; delay: number; duration: number; repeatDelay: number }[]>([]);
 
   useEffect(() => {
     setTimeout(() => setGradeVisible(true), 300);
@@ -39,6 +40,8 @@ export function SettlementPage() {
       emoji: emojis[i % emojis.length],
       x: 5 + Math.random() * 90,
       delay: Math.random() * 2,
+      duration: 3.5 + Math.random(),
+      repeatDelay: Math.random() * 3,
     }));
     setParticles(items);
   }, [finalScore?.grade]);
@@ -60,7 +63,7 @@ export function SettlementPage() {
           key={p.id}
           initial={{ y: '100vh', opacity: 1 }}
           animate={{ y: '-20vh', opacity: 0 }}
-          transition={{ duration: 3.5 + Math.random(), delay: p.delay, repeat: Infinity, repeatDelay: Math.random() * 3 }}
+          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, repeatDelay: p.repeatDelay }}
           style={{
             position: 'fixed',
             left: `${p.x}%`,
@@ -149,7 +152,7 @@ export function SettlementPage() {
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 24 }}>
               {[
                 { label: '💥 暴击次数', value: `${finalScore.critCount}次` },
-                { label: '😊 心情', value: finalScore.mood >= 68 ? '高兴' : finalScore.mood >= 34 ? '一般' : '难过' },
+                { label: '😊 心情', value: { sad: '难过', neutral: '一般', happy: '高兴' }[mapMoodToTier(finalScore.mood)] },
                 { label: '✨ 闪光', value: finalScore.sparkle.toFixed(0) },
               ].map(item => (
                 <div key={item.label} style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 18px', textAlign: 'center', minWidth: 100, border: '1px solid rgba(255,255,255,0.1)' }}>
