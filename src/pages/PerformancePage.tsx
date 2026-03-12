@@ -3,6 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { PETS } from '../data/gameData';
 import { StageScene } from '../components/StageScene';
 import { SkillEffect } from '../components/SkillEffect';
+import { SkillScore } from '../components/SkillScore';
 import { performContest } from '../utils/gameLogic';
 import type { FinalScore } from '../types';
 
@@ -15,6 +16,7 @@ export function PerformancePage() {
   const [isCrit, setIsCrit] = useState(false);
   const [displayScore, setDisplayScore] = useState(0);
   const [done, setDone] = useState(false);
+  const [skillScores, setSkillScores] = useState<number[]>([0, 0, 0]);
   const finalRef = useRef<FinalScore | null>(null);
   const runOnce = useRef(false);
 
@@ -34,6 +36,15 @@ export function PerformancePage() {
         setSkillVisible(true);
         const hasCrit = Math.random() < result.critRate;
         setIsCrit(hasCrit);
+        // Award a skill score based on weighted contribution
+        const pet = PETS.find(p => p.id === selectedPet)!;
+        const skillBonus = Object.values(pet.skills[i]?.bonus ?? {}).reduce((s, v) => s + (v ?? 0), 0);
+        const baseSkillScore = 50 + skillBonus * 1.2 + (hasCrit ? 40 : 0);
+        setSkillScores(prev => {
+          const next = [...prev];
+          next[i] = Math.round(baseSkillScore);
+          return next;
+        });
         setTimeout(() => setSkillVisible(false), 2200);
       }, delay);
     }
@@ -76,18 +87,17 @@ export function PerformancePage() {
         />
       </div>
 
-      {/* Skill indicator */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+      {/* Skill score cards */}
+      <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
         {pet.skills.map((skill, i) => (
-          <div key={i} style={{
-            padding: '8px 18px', borderRadius: 12,
-            background: currentSkill === i ? SKILL_COLORS[i] : 'rgba(255,255,255,0.1)',
-            color: 'white', fontSize: 14, fontWeight: 700,
-            boxShadow: currentSkill === i ? `0 0 20px ${SKILL_COLORS[i]}` : 'none',
-            transition: 'all 0.3s',
-          }}>
-            {currentSkill > i ? '✅' : currentSkill === i ? '▶' : '○'} {skill.name}
-          </div>
+          <SkillScore
+            key={i}
+            skillName={skill.name}
+            score={skillScores[i]}
+            maxScore={150}
+            color={SKILL_COLORS[i]}
+            active={currentSkill === i}
+          />
         ))}
       </div>
 
