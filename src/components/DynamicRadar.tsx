@@ -125,7 +125,7 @@ export function DynamicRadar({ current, predicted, maxValue = 150, color = '#a78
               dot={{ r: 3, fill: activeColor }}
             />
             <Tooltip
-            formatter={(value) => [typeof value === 'number' ? value : Number(value), '能力值'] as [number, string]}
+            formatter={(value) => [Number(value), '能力值'] as [number, string]}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${activeColor}55`, background: 'rgba(255,255,255,0.97)' }}
               labelStyle={{ color: '#333', fontWeight: 700 }}
             />

@@ -82,7 +82,7 @@ export function SettlementPage() {
   const pet = PETS.find(p => p.id === selectedPet)!;
   const contest = CONTESTS.find(c => c.id === selectedContest)!;
   const hs = highScores[selectedContest];
-  const isNewRecord = hs && Math.round(hs.score) === Math.round(finalScore.total);
+  const isNewRecord = hs && Math.round(finalScore.total) >= Math.round(hs.score);
 
   const fx = GRADE_FX[finalScore.grade] ?? GRADE_FX['D'];
 

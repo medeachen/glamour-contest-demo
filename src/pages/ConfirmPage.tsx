@@ -50,8 +50,12 @@ export function ConfirmPage() {
 
   // Estimate grade using recommendation score mapped to a 0-1000 scale
   const recScore = computeRecommendation(pet, contest.weights);
-  // Map 0–100 rec score + food bonus effect to approximate grade range
-  const estimatedTotal = recScore * 8 + (selectedFoods.length * 40);
+  // Estimate grade: map recommendation score (0–100) to approximate total score range.
+  // REC_SCORE_MULTIPLIER=8 maps a perfect rec score of 100 → 800 (which is the S-grade boundary).
+  // FOOD_BONUS_PER_ITEM=40 adds a small bonus per fed item reflecting stat boosts.
+  const REC_SCORE_MULTIPLIER = 8;
+  const FOOD_BONUS_PER_ITEM = 40;
+  const estimatedTotal = recScore * REC_SCORE_MULTIPLIER + (selectedFoods.length * FOOD_BONUS_PER_ITEM);
   const estimatedGrade = getGrade(estimatedTotal);
   const gradeStyle = GRADE_STYLES[estimatedGrade] ?? GRADE_STYLES['C'];
   const keyAbilities = getKeyAbilities(combinedStats);

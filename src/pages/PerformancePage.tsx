@@ -45,11 +45,13 @@ export function PerformancePage() {
         const hasCrit = Math.random() < result.critRate;
         setIsCrit(hasCrit);
 
-        // Compute a 0-100 display score for this skill
+        // Sum all possible skill bonuses to normalize the score to 0-100
         const skillBonus = pet.skills[i]?.bonus ?? {};
         const dims = ['mind', 'emotion', 'curiosity', 'power'] as const;
         const skillSum = dims.reduce((s, d) => s + (skillBonus[d] ?? 0), 0);
-        const maxPossible = 30; // approximate max skill bonus sum
+        // maxPossible: highest observed single-skill total bonus in game data is ~30
+        // (e.g. mind+20, emotion+10 = 30) — used to normalize 0–100 display score
+        const maxPossible = 30;
         const baseScore = Math.min((skillSum / maxPossible) * 100, 100);
         const critBonus = hasCrit ? 15 : 0;
         const moodBonus = (result.mood / 100) * 10;
