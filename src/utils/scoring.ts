@@ -9,7 +9,7 @@
 
 import type { Pet, PetId, ContestId, FoodId, DimValues } from '../types';
 import { PETS, CONTESTS, FOODS } from '../data/gameData';
-import { calculateFoodBonus } from './gameLogic';
+import { calculateFoodBonus, calculateSkillBonus, calculateCritMultiplier } from './gameLogic';
 
 // ─── Grade mapping ──────────────────────────────────────────────────────────
 
@@ -152,18 +152,50 @@ export function getFoodBonusInfo(foodId: FoodId) {
   return FOODS.find(f => f.id === foodId) ?? null;
 }
 
-// ─── Equal-weight 5D recommendation score ────────────────────────────────────
+// ─── Equal-weight 5D recommendation score (legacy) ───────────────────────────
 
 /**
- * Compute a 0–100 recommendation score for a pet as an equal-weight average
- * across five normalized dimensions: mind, emotion, curiosity, power, sparkle.
- * Uses a neutral baseline mood (50) to derive sparkle; does not mutate pet.
+ * @deprecated since 2026-03-12. Use computeRecommendation(petOrPetId, contestId) instead.
+ * Kept for any callers that don't yet pass a contestId.
  */
-export function computeRecommendation(pet: Pet): number {
+export function computeRecommendationLegacy(pet: Pet): number {
   const NEUTRAL_MOOD = 50;
   const stats = buildDisplayStats(pet.baseStats, pet.affection, NEUTRAL_MOOD);
   const { mind, emotion, curiosity, power, sparkle } = stats;
   return Math.round((mind + emotion + curiosity + power + sparkle) / 5);
+}
+
+// ─── All-critical best-case recommendation score ─────────────────────────────
+
+/**
+ * Compute a 0–100 recommendation score for a pet in the given contest by
+ * simulating the "best-case all-critical" outcome:
+ *  1. afterBonus[d] = pet.baseStats[d] + skillBonus[d]
+ *  2. critMultiplier = calculateCritMultiplier(pet.affection)
+ *  3. afterCrit[d]  = min(100, afterBonus[d] * critMultiplier)
+ *  4. score = round( sum((afterCrit[d]/100) * weights[d]) / totalWeight * 100 )
+ *
+ * Does NOT modify the pet object.
+ */
+export function computeRecommendation(petOrPetId: Pet | PetId, contestId: ContestId): number {
+  const pet: Pet | undefined =
+    typeof petOrPetId === 'string' ? PETS.find(p => p.id === petOrPetId) : petOrPetId;
+  const contest = CONTESTS.find(c => c.id === contestId);
+  if (!pet || !contest) return 0;
+
+  const skillBonus = calculateSkillBonus(pet.id);
+  const critMultiplier = calculateCritMultiplier(pet.affection);
+
+  const dims = ['mind', 'emotion', 'curiosity', 'power'] as const;
+  const totalWeight = dims.reduce((s, d) => s + contest.weights[d], 0);
+
+  const weightedNormalized = dims.reduce((sum, d) => {
+    const afterBonus = pet.baseStats[d] + skillBonus[d];
+    const afterCrit = Math.min(100, afterBonus * critMultiplier);
+    return sum + (afterCrit / 100) * contest.weights[d];
+  }, 0);
+
+  return Math.round((weightedNormalized / totalWeight) * 100);
 }
 
 // ─── 0–100 rank mapping ──────────────────────────────────────────────────────
