@@ -224,30 +224,49 @@ describe('getMoodInfoNormalized', () => {
 // ─── computeRecommendation ────────────────────────────────────────────────────
 
 describe('computeRecommendation', () => {
-  it('returns a number between 0 and 100 for every pet', () => {
+  it('returns a number between 0 and 100 for every pet/contest combo', () => {
     for (const pet of PETS) {
-      const score = computeRecommendation(pet);
+      const score = computeRecommendation(pet.id, 'sweet');
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(100);
     }
   });
 
-  it('computes equal-weight average of 5 dimensions', () => {
-    // bubble: mind=55, emotion=85, curiosity=70, power=50, affection=70
-    // sparkle = round(70*0.6 + 50*0.4) = round(42+20) = 62
-    // average = round((55+85+70+50+62)/5) = round(322/5) = round(64.4) = 64
-    const bubble = PETS.find(p => p.id === 'bubble')!;
-    const score = computeRecommendation(bubble);
-    const expectedSparkle = Math.round(bubble.affection * 0.6 + 50 * 0.4);
-    const { mind, emotion, curiosity, power } = bubble.baseStats;
-    const expected = Math.round((mind + emotion + curiosity + power + expectedSparkle) / 5);
-    expect(score).toBe(expected);
+  it('accepts a Pet object or a PetId string and returns the same result', () => {
+    const pet = PETS.find(p => p.id === 'bubble')!;
+    expect(computeRecommendation(pet, 'elegance')).toBe(computeRecommendation('bubble', 'elegance'));
+  });
+
+  it('returns higher score for a pet whose stats align well with the contest weights', () => {
+    // dashing contest weights power (2.0) and mind (1.5) heavily; rock has high mind+power
+    // bubble has high emotion but low power, so rock should dominate in dashing
+    const rockDashing   = computeRecommendation('rock',   'dashing');
+    const bubbleDashing = computeRecommendation('bubble', 'dashing');
+    expect(rockDashing).toBeGreaterThan(bubbleDashing);
+  });
+
+  it('score increases with higher affection (all-critical multiplier grows)', () => {
+    // Clone bubble with low vs high affection to verify critMultiplier effect
+    const petBase = PETS.find(p => p.id === 'bubble')!;
+    const lowAff  = { ...petBase, affection: 0 };
+    const highAff = { ...petBase, affection: 100 };
+    expect(computeRecommendation(highAff, 'sweet')).toBeGreaterThan(computeRecommendation(lowAff, 'sweet'));
+  });
+
+  it('returns 0 for an invalid contestId', () => {
+    // @ts-expect-error testing invalid input
+    expect(computeRecommendation('bubble', 'invalid')).toBe(0);
+  });
+
+  it('returns 0 for an invalid petId', () => {
+    // @ts-expect-error testing invalid input
+    expect(computeRecommendation('invalid', 'sweet')).toBe(0);
   });
 
   it('does not mutate the pet object', () => {
     const pet = PETS.find(p => p.id === 'flame')!;
     const originalStats = { ...pet.baseStats };
-    computeRecommendation(pet);
+    computeRecommendation(pet, 'dashing');
     expect(pet.baseStats).toEqual(originalStats);
   });
 });

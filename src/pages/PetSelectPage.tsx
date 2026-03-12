@@ -4,7 +4,7 @@ import { PETS } from '../data/gameData';
 import type { PetId } from '../types';
 import { PetModel } from '../components/PetModel';
 import { RadarChart } from '../components/RadarChart';
-import { calcRecommendScore, computeRecommendation, buildDisplayStats } from '../utils/scoring';
+import { computeRecommendation, buildDisplayStats } from '../utils/scoring';
 
 export function PetSelectPage() {
   const { setPhase, selectPet, selectedPet, selectedContest } = useGameStore();
@@ -21,11 +21,16 @@ export function PetSelectPage() {
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
 
-  // Sort pets by computeRecommendation (equal-weight 5D) descending; mark top as recommended
-  const sortedPets = [...PETS].sort(
-    (a, b) => computeRecommendation(b) - computeRecommendation(a),
-  );
-  const topPetId = sortedPets[0]?.id ?? null;
+  // Pre-compute recommendation scores once to avoid redundant calls during sort
+  const recScores = selectedContest
+    ? Object.fromEntries(PETS.map(p => [p.id, computeRecommendation(p.id, selectedContest)]))
+    : null;
+
+  // Sort pets by recommendation score descending when a contest is selected
+  const sortedPets = recScores
+    ? [...PETS].sort((a, b) => recScores[b.id] - recScores[a.id])
+    : [...PETS];
+  const topPetId = recScores ? (sortedPets[0]?.id ?? null) : null;
 
   const activePet = selectedPet ? PETS.find(p => p.id === selectedPet) : null;
 
@@ -49,7 +54,7 @@ export function PetSelectPage() {
               const isSelected = selectedPet === pet.id;
               const isHov = hovered === pet.id;
               const isTop = pet.id === topPetId;
-              const recScore = selectedContest ? calcRecommendScore(pet.id, selectedContest) : null;
+              const recScore = recScores ? recScores[pet.id] : null;
               return (
                 <div key={pet.id}
                   onClick={() => handleSelect(pet.id)}

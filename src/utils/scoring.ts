@@ -9,7 +9,7 @@
 
 import type { Pet, PetId, ContestId, FoodId, DimValues } from '../types';
 import { PETS, CONTESTS, FOODS } from '../data/gameData';
-import { calculateFoodBonus } from './gameLogic';
+import { calculateFoodBonus, calculateSkillBonus, calculateCritMultiplier } from './gameLogic';
 
 // ─── Grade mapping ──────────────────────────────────────────────────────────
 
@@ -152,18 +152,47 @@ export function getFoodBonusInfo(foodId: FoodId) {
   return FOODS.find(f => f.id === foodId) ?? null;
 }
 
-// ─── Equal-weight 5D recommendation score ────────────────────────────────────
+// ─── All-critical simulation recommendation score ─────────────────────────────
 
 /**
- * Compute a 0–100 recommendation score for a pet as an equal-weight average
- * across five normalized dimensions: mind, emotion, curiosity, power, sparkle.
- * Uses a neutral baseline mood (50) to derive sparkle; does not mutate pet.
+ * Compute a 0–100 recommendation score for a pet in a given contest by
+ * simulating the all-critical best-case scenario.
+ *
+ * Algorithm:
+ *  1. afterBonus[d] = baseStats[d] + foodBonus[d] + skillBonus[d]
+ *  2. afterCrit[d]  = min(100, afterBonus[d] × critMultiplier)   (all-crit)
+ *  3. fraction      = Σ(afterCrit[d] × weights[d]) / Σ(100 × weights[d])
+ *  4. return Math.round(fraction × 100)
+ *
+ * @param petOrId  - Pet object or PetId string
+ * @param contestId - Contest to evaluate against
+ * @param foods    - Optional foods already fed (default: none)
  */
-export function computeRecommendation(pet: Pet): number {
-  const NEUTRAL_MOOD = 50;
-  const stats = buildDisplayStats(pet.baseStats, pet.affection, NEUTRAL_MOOD);
-  const { mind, emotion, curiosity, power, sparkle } = stats;
-  return Math.round((mind + emotion + curiosity + power + sparkle) / 5);
+export function computeRecommendation(
+  petOrId: Pet | PetId,
+  contestId: ContestId,
+  foods: FoodId[] = [],
+): number {
+  const pet = typeof petOrId === 'string' ? PETS.find(p => p.id === petOrId) : petOrId;
+  const contest = CONTESTS.find(c => c.id === contestId);
+  if (!pet || !contest) return 0;
+
+  const foodBonus = calculateFoodBonus(foods);
+  const skillBonus = calculateSkillBonus(pet.id);
+  const critMultiplier = calculateCritMultiplier(pet.affection);
+
+  const dims = ['mind', 'emotion', 'curiosity', 'power'] as const;
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (const d of dims) {
+    const afterBonus = pet.baseStats[d] + foodBonus[d] + skillBonus[d];
+    const afterCrit = Math.min(100, afterBonus * critMultiplier);
+    weightedSum += afterCrit * contest.weights[d];
+    totalWeight += 100 * contest.weights[d];
+  }
+
+  return Math.round((weightedSum / totalWeight) * 100);
 }
 
 // ─── 0–100 rank mapping ──────────────────────────────────────────────────────
