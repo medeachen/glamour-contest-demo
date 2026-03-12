@@ -4,7 +4,7 @@ import { PETS } from '../data/gameData';
 import type { PetId } from '../types';
 import { PetModel } from '../components/PetModel';
 import { RadarChart } from '../components/RadarChart';
-import { calcRecommendScore, getRankedPets, buildDisplayStats } from '../utils/scoring';
+import { calcRecommendScore, computeRecommendation, buildDisplayStats } from '../utils/scoring';
 
 export function PetSelectPage() {
   const { setPhase, selectPet, selectedPet, selectedContest } = useGameStore();
@@ -21,17 +21,11 @@ export function PetSelectPage() {
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
 
-  const ranked = selectedContest ? getRankedPets(selectedContest) : null;
-  const topPetId = ranked ? ranked[0].petId : null;
-
-  // Sort pets: recommended first
-  const sortedPets = ranked
-    ? [...PETS].sort((a, b) => {
-        const ra = ranked.find(r => r.petId === a.id)?.score ?? 0;
-        const rb = ranked.find(r => r.petId === b.id)?.score ?? 0;
-        return rb - ra;
-      })
-    : PETS;
+  // Sort pets by computeRecommendation (equal-weight 5D) descending; mark top as recommended
+  const sortedPets = [...PETS].sort(
+    (a, b) => computeRecommendation(b) - computeRecommendation(a),
+  );
+  const topPetId = sortedPets[0]?.id ?? null;
 
   const activePet = selectedPet ? PETS.find(p => p.id === selectedPet) : null;
 

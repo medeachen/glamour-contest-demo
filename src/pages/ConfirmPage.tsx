@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { PETS, CONTESTS, FOODS, DIM_LABELS } from '../data/gameData';
 import { calculateMood, calculateFoodBonus } from '../utils/gameLogic';
-import { calcRecommendScore, getMoodInfo, scoreToGrade, getGradeInfo } from '../utils/scoring';
+import { calcRecommendScore, getMoodInfo, mapScoreToRank, getGradeInfo } from '../utils/scoring';
 import { MoodBadge } from '../components/MoodBadge';
 
 export function ConfirmPage() {
@@ -17,9 +17,7 @@ export function ConfirmPage() {
   const moodInfo = getMoodInfo(mood);
   const foodBonus = calculateFoodBonus(selectedFoods);
   const recScore = calcRecommendScore(selectedPet, selectedContest);
-  // recScore is 0–100; scoreToGrade thresholds go up to 800, so multiply by 8
-  // to map the recommendation percentage into the same score range for a pre-contest grade estimate.
-  const grade = scoreToGrade(recScore * 8);
+  const grade = mapScoreToRank(recScore);
   const gradeInfo = getGradeInfo(grade);
 
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
