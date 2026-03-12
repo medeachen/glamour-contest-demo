@@ -3,7 +3,8 @@ import { useGameStore } from '../store/gameStore';
 import { PETS, FOODS, DIM_LABELS } from '../data/gameData';
 import type { FoodId } from '../types';
 import { PetModel } from '../components/PetModel';
-import { RadarChart } from '../components/RadarChart';
+import { DynamicRadar } from '../components/DynamicRadar';
+import type { DynamicRadarDataPoint } from '../components/DynamicRadar';
 import { MoodBadge } from '../components/MoodBadge';
 import { calculateMood, calculateFoodBonus } from '../utils/gameLogic';
 import { getMoodInfo, buildDisplayStats, previewFeeding } from '../utils/scoring';
@@ -25,6 +26,14 @@ export function FeedingPage() {
   const previewDisplay = selectedFoods.length > 0
     ? buildDisplayStats(preview.after, pet.affection, mood)
     : undefined;
+
+  // Map to DynamicRadar data format (reuse DIM_LABELS for 4D; sparkle label is fixed as '闪光')
+  const DIM_KEYS_5D = ['mind', 'emotion', 'curiosity', 'power', 'sparkle'] as const;
+  const dynamicRadarData: DynamicRadarDataPoint[] = DIM_KEYS_5D.map((k) => ({
+    name: k === 'sparkle' ? '闪光' : DIM_LABELS[k],
+    current: baseDisplay[k as keyof typeof baseDisplay],
+    predicted: previewDisplay?.[k as keyof typeof previewDisplay],
+  }));
 
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
@@ -64,13 +73,11 @@ export function FeedingPage() {
                 五维能力{selectedFoods.length > 0 ? '（预览变化）' : ''}
               </div>
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <RadarChart
-                  values={baseDisplay}
+                <DynamicRadar
+                  data={dynamicRadarData}
                   maxValue={100}
-                  color={accentColor}
+                  currentColor={accentColor}
                   size={180}
-                  previewValues={previewDisplay}
-                  previewColor="#86efac"
                 />
               </div>
               {selectedFoods.length > 0 && (

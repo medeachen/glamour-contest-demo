@@ -7,7 +7,7 @@
  *  - Feeding stat preview / prediction
  */
 
-import type { PetId, ContestId, FoodId, DimValues } from '../types';
+import type { Pet, PetId, ContestId, FoodId, DimValues } from '../types';
 import { PETS, CONTESTS, FOODS } from '../data/gameData';
 import { calculateFoodBonus } from './gameLogic';
 
@@ -150,4 +150,48 @@ export function buildDisplayStats(
 /** Compute the single food item's bonus info for UI display. */
 export function getFoodBonusInfo(foodId: FoodId) {
   return FOODS.find(f => f.id === foodId) ?? null;
+}
+
+// ─── Equal-weight 5D recommendation score ────────────────────────────────────
+
+/**
+ * Compute a 0–100 recommendation score for a pet as an equal-weight average
+ * across five normalized dimensions: mind, emotion, curiosity, power, sparkle.
+ * Uses a neutral baseline mood (50) to derive sparkle; does not mutate pet.
+ */
+export function computeRecommendation(pet: Pet): number {
+  const NEUTRAL_MOOD = 50;
+  const stats = buildDisplayStats(pet.baseStats, pet.affection, NEUTRAL_MOOD);
+  const { mind, emotion, curiosity, power, sparkle } = stats;
+  return Math.round((mind + emotion + curiosity + power + sparkle) / 5);
+}
+
+// ─── 0–100 rank mapping ──────────────────────────────────────────────────────
+
+/**
+ * Map a 0–100 score to a rank letter using equal-interval thresholds.
+ * S: ≥90 | A: ≥75 | B: ≥60 | C: <60
+ */
+export function mapScoreToRank(score: number): string {
+  if (score >= 90) return 'S';
+  if (score >= 75) return 'A';
+  if (score >= 60) return 'B';
+  return 'C';
+}
+
+// ─── Normalized mood adapter ─────────────────────────────────────────────────
+
+export type MoodLevelNormalized = 'sad' | 'neutral' | 'happy';
+
+export interface MoodInfoNormalized extends Omit<MoodInfo, 'level'> {
+  level: MoodLevelNormalized;
+}
+
+/**
+ * Adapter that returns the same mood info as getMoodInfo but uses 'neutral'
+ * instead of 'normal' for the middle tier, matching 'sad'|'neutral'|'happy'.
+ */
+export function getMoodInfoNormalized(mood: number): MoodInfoNormalized {
+  const info = getMoodInfo(mood);
+  return { ...info, level: info.level === 'normal' ? 'neutral' : (info.level as MoodLevelNormalized) };
 }
