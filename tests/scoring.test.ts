@@ -10,8 +10,11 @@ import {
   previewFeeding,
   buildDisplayStats,
   getGradeInfo,
+  normalizeDimensions,
+  mapMoodToTier,
 } from '../src/utils/scoring';
 import { PETS } from '../src/data/gameData';
+import type { Pet } from '../src/types';
 
 // ─── scoreToGrade ─────────────────────────────────────────────────────────────
 
@@ -277,5 +280,89 @@ describe('mapScoreToRank', () => {
     expect(mapScoreToRank(59)).toBe('C');
     expect(mapScoreToRank(30)).toBe('C');
     expect(mapScoreToRank(0)).toBe('C');
+  });
+});
+
+// ─── normalizeDimensions ─────────────────────────────────────────────────────
+
+describe('normalizeDimensions', () => {
+  it('normalizes all-zero dims to 0', () => {
+    const result = normalizeDimensions({ mind: 0, emotion: 0, curiosity: 0, power: 0, sparkle: 0 });
+    expect(result.mind).toBe(0);
+    expect(result.emotion).toBe(0);
+    expect(result.curiosity).toBe(0);
+    expect(result.power).toBe(0);
+    expect(result.sparkle).toBe(0);
+  });
+
+  it('normalizes all-100 dims to 1', () => {
+    const result = normalizeDimensions({ mind: 100, emotion: 100, curiosity: 100, power: 100, sparkle: 100 });
+    expect(result.mind).toBe(1);
+    expect(result.emotion).toBe(1);
+    expect(result.curiosity).toBe(1);
+    expect(result.power).toBe(1);
+    expect(result.sparkle).toBe(1);
+  });
+
+  it('normalizes 50 to 0.5', () => {
+    const result = normalizeDimensions({ mind: 50, emotion: 50, curiosity: 50, power: 50, sparkle: 50 });
+    expect(result.mind).toBeCloseTo(0.5);
+    expect(result.sparkle).toBeCloseTo(0.5);
+  });
+
+  it('normalizes mixed values independently', () => {
+    const result = normalizeDimensions({ mind: 25, emotion: 75, curiosity: 0, power: 100, sparkle: 50 });
+    expect(result.mind).toBeCloseTo(0.25);
+    expect(result.emotion).toBeCloseTo(0.75);
+    expect(result.curiosity).toBe(0);
+    expect(result.power).toBe(1);
+    expect(result.sparkle).toBeCloseTo(0.5);
+  });
+});
+
+// ─── mapMoodToTier ────────────────────────────────────────────────────────────
+
+describe('mapMoodToTier', () => {
+  it('returns sad for mood 0-33', () => {
+    expect(mapMoodToTier(0)).toBe('sad');
+    expect(mapMoodToTier(20)).toBe('sad');
+    expect(mapMoodToTier(33)).toBe('sad');
+  });
+
+  it('returns neutral for mood 34-67', () => {
+    expect(mapMoodToTier(34)).toBe('neutral');
+    expect(mapMoodToTier(50)).toBe('neutral');
+    expect(mapMoodToTier(67)).toBe('neutral');
+  });
+
+  it('returns happy for mood 68-100', () => {
+    expect(mapMoodToTier(68)).toBe('happy');
+    expect(mapMoodToTier(85)).toBe('happy');
+    expect(mapMoodToTier(100)).toBe('happy');
+  });
+});
+
+// ─── computeRecommendation (feature branch: Pet-based API) ───────────────────
+
+describe('computeRecommendation – Pet object API', () => {
+  const makeTestPet = (stats: { mind: number; emotion: number; curiosity: number; power: number }, affection = 70): Pet => ({
+    id: 'bubble',
+    name: 'Test',
+    icon: '🐾',
+    description: '',
+    element: '',
+    baseStats: stats,
+    affection,
+    tastePreference: { sweet: 0, sour: 0, bitter: 0, spicy: 0, salty: 0 },
+    colorPrimary: '',
+    colorSecondary: '',
+    skills: [],
+  });
+
+  it('does NOT modify the pet object', () => {
+    const original = makeTestPet({ mind: 70, emotion: 80, curiosity: 60, power: 50 });
+    const clone = JSON.parse(JSON.stringify(original));
+    computeRecommendation(original);
+    expect(original).toEqual(clone);
   });
 });
