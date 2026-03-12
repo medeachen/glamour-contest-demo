@@ -4,8 +4,7 @@ import { PETS } from '../data/gameData';
 import type { PetId } from '../types';
 import { PetModel } from '../components/PetModel';
 import { RadarChart } from '../components/RadarChart';
-
-const TASTE_LABELS: Record<string, string> = { sweet: '甜', sour: '酸', bitter: '苦', spicy: '辣', salty: '咸' };
+import { calcRecommendScore, getRankedPets, buildDisplayStats } from '../utils/scoring';
 
 export function PetSelectPage() {
   const { setPhase, selectPet, selectedPet, selectedContest } = useGameStore();
@@ -22,9 +21,23 @@ export function PetSelectPage() {
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
 
+  const ranked = selectedContest ? getRankedPets(selectedContest) : null;
+  const topPetId = ranked ? ranked[0].petId : null;
+
+  // Sort pets: recommended first
+  const sortedPets = ranked
+    ? [...PETS].sort((a, b) => {
+        const ra = ranked.find(r => r.petId === a.id)?.score ?? 0;
+        const rb = ranked.find(r => r.petId === b.id)?.score ?? 0;
+        return rb - ra;
+      })
+    : PETS;
+
+  const activePet = selectedPet ? PETS.find(p => p.id === selectedPet) : null;
+
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f3e5f5, #e8eaf6, #e0f2f1)', padding: '20px', fontFamily: "'PingFang SC', 'Microsoft YaHei', sans-serif" }}>
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28, gap: 16 }}>
           <button onClick={() => setPhase('lobby')} style={{ background: 'white', border: 'none', borderRadius: 12, padding: '8px 16px', cursor: 'pointer', fontSize: 14, color: '#666', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -33,99 +46,128 @@ export function PetSelectPage() {
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#444' }}>选择你的宠物 🐾</h1>
         </div>
 
-        {/* Pet cards */}
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {PETS.map((pet) => {
-            const isSelected = selectedPet === pet.id;
-            const isHov = hovered === pet.id;
-            const prefs = Object.entries(pet.tastePreference).sort((a, b) => b[1] - a[1]);
-            return (
-              <div key={pet.id}
-                onClick={() => handleSelect(pet.id)}
-                onMouseEnter={() => setHovered(pet.id)}
-                onMouseLeave={() => setHovered(null)}
-                style={{
-                  background: 'white',
-                  borderRadius: 24,
-                  padding: 24,
-                  cursor: 'pointer',
-                  width: 260,
-                  boxShadow: isSelected ? `0 8px 32px ${accentColor}44` : isHov ? '0 8px 24px rgba(0,0,0,0.12)' : '0 4px 12px rgba(0,0,0,0.07)',
-                  border: isSelected ? `2px solid ${accentColor}` : '2px solid transparent',
-                  transform: isHov || isSelected ? 'translateY(-4px)' : 'none',
-                  transition: 'all 0.3s',
-                  textAlign: 'center',
-                }}>
-                {/* 3D Model */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-                  <PetModel petId={pet.id} size={160} animate={true} />
-                </div>
+        {/* ── Horizontal 3-column layout ── */}
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-                <h2 style={{ margin: '8px 0 4px', fontSize: 20, color: '#333', fontWeight: 800 }}>
-                  {pet.icon} {pet.name}
-                  <span style={{ fontSize: 13, marginLeft: 8, background: '#f0f4ff', borderRadius: 8, padding: '2px 8px', color: '#5566aa', fontWeight: 600 }}>{pet.element}属性</span>
-                </h2>
-                <p style={{ color: '#777', fontSize: 12, margin: '0 0 12px', lineHeight: 1.6 }}>{pet.description}</p>
-
-                {/* Radar */}
-                <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
-                  <RadarChart values={pet.baseStats} maxValue={100} color={accentColor} size={120} />
-                </div>
-
-                {/* Stats */}
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', margin: '8px 0' }}>
-                  {Object.entries(pet.baseStats).map(([dim, val]) => {
-                    const labels: Record<string, string> = { mind: '头脑', emotion: '情感', curiosity: '好奇', power: '力量' };
-                    return (
-                      <span key={dim} style={{ fontSize: 11, background: '#f5f0ff', borderRadius: 8, padding: '3px 8px', color: '#7c4dff', fontWeight: 600 }}>
-                        {labels[dim]}: {val}
-                      </span>
-                    );
-                  })}
-                </div>
-
-                {/* Affection */}
-                <div style={{ margin: '8px 0', fontSize: 13, color: '#555' }}>
-                  💕 好感度 <b style={{ color: '#e91e8c' }}>{pet.affection}</b>
-                </div>
-
-                {/* Taste prefs */}
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 11, color: '#999', marginBottom: 4 }}>味道偏好</div>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    {prefs.map(([taste, val]) => (
-                      <span key={taste} style={{ fontSize: 11, background: val > 0 ? '#e8f5e9' : '#fce4ec', color: val > 0 ? '#2e7d32' : '#c62828', borderRadius: 6, padding: '2px 7px', fontWeight: 600 }}>
-                        {TASTE_LABELS[taste]} {val > 0 ? '+' : ''}{val}
-                      </span>
-                    ))}
+          {/* LEFT column – pet cards list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 200, flex: '0 0 auto' }}>
+            {sortedPets.map((pet) => {
+              const isSelected = selectedPet === pet.id;
+              const isHov = hovered === pet.id;
+              const isTop = pet.id === topPetId;
+              const recScore = selectedContest ? calcRecommendScore(pet.id, selectedContest) : null;
+              return (
+                <div key={pet.id}
+                  onClick={() => handleSelect(pet.id)}
+                  onMouseEnter={() => setHovered(pet.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{
+                    background: 'white',
+                    borderRadius: 16,
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    boxShadow: isSelected ? `0 4px 20px ${accentColor}44` : isHov ? '0 4px 16px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.06)',
+                    border: isSelected ? `2px solid ${accentColor}` : '2px solid transparent',
+                    transform: isHov || isSelected ? 'translateX(4px)' : 'none',
+                    transition: 'all 0.25s',
+                    position: 'relative',
+                  }}>
+                  {isTop && (
+                    <div style={{
+                      position: 'absolute',
+                      top: -8, right: 8,
+                      background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+                      color: '#fff',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      borderRadius: 8,
+                      padding: '2px 8px',
+                      boxShadow: '0 2px 6px rgba(255,140,0,0.4)',
+                    }}>⭐ 最推荐</div>
+                  )}
+                  <span style={{ fontSize: 28 }}>{pet.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#333', fontSize: 15 }}>{pet.name}</div>
+                    {recScore !== null && (
+                      <div style={{ fontSize: 11, color: accentColor, fontWeight: 600 }}>适配度 {recScore}%</div>
+                    )}
                   </div>
+                  {isSelected && <span style={{ marginLeft: 'auto', color: accentColor, fontWeight: 800 }}>✓</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* CENTER column – radar chart */}
+          <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            {activePet ? (
+              <div style={{ background: 'white', borderRadius: 24, padding: 28, boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center', width: '100%' }}>
+                <div style={{ fontSize: 13, color: '#999', marginBottom: 4 }}>五维能力雷达</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                  <RadarChart
+                    values={buildDisplayStats(activePet.baseStats, activePet.affection, 70)}
+                    maxValue={100}
+                    color={accentColor}
+                    size={220}
+                  />
+                </div>
+                <div style={{ fontSize: 12, color: '#aaa' }}>悬停数据点查看精确数值</div>
+              </div>
+            ) : (
+              <div style={{ background: 'rgba(255,255,255,0.6)', borderRadius: 24, padding: 40, textAlign: 'center', width: '100%' }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🐾</div>
+                <div style={{ color: '#aaa', fontSize: 15 }}>选择一只宠物查看能力雷达</div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT column – pet detail & actions */}
+          <div style={{ flex: 1, minWidth: 260, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {activePet ? (
+              <>
+                {/* Pet card */}
+                <div style={{ background: 'white', borderRadius: 24, padding: 24, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+                  <PetModel petId={activePet.id} size={160} animate />
+                  <h2 style={{ margin: '8px 0 4px', fontSize: 22, color: '#333', fontWeight: 800 }}>
+                    {activePet.icon} {activePet.name}
+                  </h2>
+                  <p style={{ color: '#777', fontSize: 12, margin: '0 0 12px', lineHeight: 1.6 }}>{activePet.description}</p>
                 </div>
 
-                {isSelected && (
-                  <div style={{ marginTop: 12, color: accentColor, fontWeight: 700, fontSize: 14 }}>✅ 已选择</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                {/* Skills preview */}
+                <div style={{ background: 'white', borderRadius: 20, padding: 20, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: 13, color: '#888', fontWeight: 600, marginBottom: 10 }}>表演技能</div>
+                  {activePet.skills.map((skill, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '7px 0', borderBottom: i < 2 ? '1px solid #f5f5f5' : 'none' }}>
+                      <span style={{ background: `${accentColor}22`, color: accentColor, borderRadius: 8, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{i + 1}</span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: '#333' }}>{skill.name}</div>
+                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{skill.description}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-        {/* Next button */}
-        <div style={{ textAlign: 'center', marginTop: 32 }}>
-          <button onClick={handleNext} disabled={!selectedPet}
-            style={{
-              background: selectedPet ? `linear-gradient(135deg, ${accentColor}, #9c27b0)` : '#ccc',
-              color: 'white',
-              border: 'none',
-              borderRadius: 16,
-              padding: '14px 48px',
-              fontSize: 18,
-              fontWeight: 700,
-              cursor: selectedPet ? 'pointer' : 'not-allowed',
-              boxShadow: selectedPet ? '0 4px 20px rgba(0,0,0,0.2)' : 'none',
-              transition: 'all 0.3s',
-            }}>
-            前往喂食 🍰
-          </button>
+                {/* CTA */}
+                <button onClick={handleNext}
+                  style={{
+                    background: `linear-gradient(135deg, ${accentColor}, #9c27b0)`,
+                    color: 'white', border: 'none', borderRadius: 16, padding: '14px 0', fontSize: 17,
+                    fontWeight: 700, cursor: 'pointer',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.2)', transition: 'all 0.3s', width: '100%',
+                  }}>
+                  前往喂食 🍰
+                </button>
+              </>
+            ) : (
+              <div style={{ background: 'rgba(255,255,255,0.5)', borderRadius: 24, padding: 32, textAlign: 'center' }}>
+                <div style={{ color: '#bbb', fontSize: 14 }}>← 从左侧选择宠物</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -3,7 +3,10 @@ import { useGameStore } from '../store/gameStore';
 import { PETS, FOODS, DIM_LABELS } from '../data/gameData';
 import type { FoodId } from '../types';
 import { PetModel } from '../components/PetModel';
-import { calculateMood, calculateSparkle, calculateCritRate, calculateCritMultiplier, calculateFoodBonus } from '../utils/gameLogic';
+import { RadarChart } from '../components/RadarChart';
+import { MoodBadge } from '../components/MoodBadge';
+import { calculateMood, calculateFoodBonus } from '../utils/gameLogic';
+import { getMoodInfo, buildDisplayStats, previewFeeding } from '../utils/scoring';
 
 export function FeedingPage() {
   const { setPhase, selectedPet, selectedFoods, addFood, removeFood, clearFoods, selectedContest } = useGameStore();
@@ -13,15 +16,18 @@ export function FeedingPage() {
 
   const pet = PETS.find(p => p.id === selectedPet)!;
   const mood = calculateMood(selectedPet, selectedFoods);
-  const sparkle = calculateSparkle(pet.affection, mood);
-  const critRate = calculateCritRate(mood);
-  const critMult = calculateCritMultiplier(pet.affection);
+  const moodInfo = getMoodInfo(mood);
   const foodBonus = calculateFoodBonus(selectedFoods);
+
+  // Build 5D display stats for radar
+  const baseDisplay = buildDisplayStats(pet.baseStats, pet.affection, mood);
+  const preview = previewFeeding(selectedPet, selectedFoods);
+  const previewDisplay = selectedFoods.length > 0
+    ? buildDisplayStats(preview.after, pet.affection, mood)
+    : undefined;
 
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
-
-  const moodColor = mood >= 70 ? '#4caf50' : mood >= 40 ? '#ff9800' : '#f44336';
 
   function handleFeed(fid: FoodId) {
     if (selectedFoods.length >= 3) return;
@@ -32,7 +38,7 @@ export function FeedingPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #fff8e1, #f3e5f5, #e8f5e9)', padding: '20px', fontFamily: "'PingFang SC', 'Microsoft YaHei', sans-serif" }}>
-      <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, gap: 16 }}>
           <button onClick={() => setPhase('petSelect')} style={{ background: 'white', border: 'none', borderRadius: 12, padding: '8px 16px', cursor: 'pointer', fontSize: 14, color: '#666', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -42,37 +48,46 @@ export function FeedingPage() {
         </div>
 
         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {/* Left: pet display */}
-          <div style={{ background: 'white', borderRadius: 24, padding: 24, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', minWidth: 240 }}>
-            <PetModel petId={selectedPet} size={200} animate={true} />
-            <h2 style={{ margin: '8px 0 4px', color: '#444', fontWeight: 800 }}>{pet.icon} {pet.name}</h2>
+          {/* Left: pet display + mood + radar */}
+          <div style={{ background: 'white', borderRadius: 24, padding: 24, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', minWidth: 260, flex: '0 0 auto' }}>
+            <PetModel petId={selectedPet} size={180} animate={true} />
+            <h2 style={{ margin: '8px 0 12px', color: '#444', fontWeight: 800 }}>{pet.icon} {pet.name}</h2>
 
-            {/* Mood bar */}
-            <div style={{ marginTop: 16, textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 13, color: '#666' }}>心情</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: moodColor }}>{mood}/100</span>
-              </div>
-              <div style={{ background: '#f0f0f0', borderRadius: 8, height: 12, overflow: 'hidden' }}>
-                <div style={{ width: `${mood}%`, height: '100%', background: `linear-gradient(90deg, ${moodColor}, ${moodColor}aa)`, borderRadius: 8, transition: 'width 0.4s' }} />
-              </div>
+            {/* 3-tier mood badge */}
+            <div style={{ marginBottom: 16 }}>
+              <MoodBadge mood={mood} moodInfo={moodInfo} />
             </div>
 
-            {/* Sparkle/crit preview */}
-            <div style={{ marginTop: 12, background: '#fafafa', borderRadius: 12, padding: 12 }}>
-              <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>表演预测</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span style={{ color: '#888' }}>✨ 闪光值</span>
-                <b style={{ color: '#9c27b0' }}>{sparkle.toFixed(1)}</b>
+            {/* Dynamic 5D radar */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>
+                五维能力{selectedFoods.length > 0 ? '（预览变化）' : ''}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 4 }}>
-                <span style={{ color: '#888' }}>⚡ 暴击率</span>
-                <b style={{ color: '#f57c00' }}>{(critRate * 100).toFixed(1)}%</b>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <RadarChart
+                  values={baseDisplay}
+                  maxValue={100}
+                  color={accentColor}
+                  size={180}
+                  previewValues={previewDisplay}
+                  previewColor="#86efac"
+                />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 4 }}>
-                <span style={{ color: '#888' }}>💥 暴击倍率</span>
-                <b style={{ color: '#e91e8c' }}>×{critMult.toFixed(2)}</b>
-              </div>
+              {selectedFoods.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 6 }}>
+                  {(Object.entries(foodBonus) as [string, number][])
+                    .filter(([, v]) => v !== 0)
+                    .map(([dim, val]) => (
+                      <span key={dim} style={{
+                        fontSize: 11, borderRadius: 8, padding: '2px 8px', fontWeight: 700,
+                        background: val > 0 ? '#e8f5e9' : '#fce4ec',
+                        color: val > 0 ? '#2e7d32' : '#c62828',
+                      }}>
+                        {DIM_LABELS[dim]} {val > 0 ? `+${val}` : val}
+                      </span>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -118,7 +133,11 @@ export function FeedingPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {FOODS.map(food => {
                   const pref = pet.tastePreference[food.id];
-                  const prefColor = pref > 0 ? '#4caf50' : pref < 0 ? '#f44336' : '#888';
+                  const moodDelta = pref > 0 ? `😍 +${pref}心情` : pref < 0 ? `😣 ${pref}心情` : '😐 无感';
+                  const moodDeltaColor = pref > 0 ? '#4caf50' : pref < 0 ? '#f44336' : '#888';
+                  const bonusText = Object.entries(food.statBonus)
+                    .map(([d, v]) => `${DIM_LABELS[d]}+${v}`)
+                    .join(' ');
                   return (
                     <button key={food.id}
                       onClick={() => handleFeed(food.id)}
@@ -132,32 +151,14 @@ export function FeedingPage() {
                       <span style={{ fontSize: 26 }}>{food.icon}</span>
                       <div style={{ flex: 1, textAlign: 'left' }}>
                         <div style={{ fontWeight: 700, color: '#444', fontSize: 14 }}>{food.name}</div>
-                        <div style={{ fontSize: 11, color: '#888' }}>
-                          {Object.entries(food.statBonus).map(([d, v]) => `${DIM_LABELS[d]}+${v}`).join(' ')}
-                        </div>
+                        <div style={{ fontSize: 11, color: '#888' }}>{bonusText}</div>
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: prefColor }}>
-                        {pref > 0 ? `😍 +${pref}心情` : pref < 0 ? `😣 ${pref}心情` : '😐 无感'}
-                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: moodDeltaColor }}>{moodDelta}</div>
                     </button>
                   );
                 })}
               </div>
             </div>
-
-            {/* Stat preview */}
-            {selectedFoods.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 16, boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
-                <h3 style={{ margin: '0 0 10px', color: '#555', fontSize: 15 }}>食物加成</h3>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(Object.entries(foodBonus) as [string, number][]).map(([dim, val]) => (
-                    <span key={dim} style={{ background: val > 0 ? '#e8f5e9' : '#fafafa', color: val > 0 ? '#2e7d32' : '#999', borderRadius: 8, padding: '4px 10px', fontSize: 13, fontWeight: 600 }}>
-                      {DIM_LABELS[dim]}: +{val}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
