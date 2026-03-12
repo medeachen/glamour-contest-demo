@@ -206,6 +206,11 @@ export interface NormalizedDimensions {
   sparkle: number;
 }
 
+/** Expected input scale minimum for normalizeDimensions. */
+const DIMENSION_MIN = 0;
+/** Expected input scale maximum for normalizeDimensions. */
+const DIMENSION_MAX = 100;
+
 /**
  * Normalizes a set of five dimension values to [0,1] range
  * using min/max normalization against a 0-100 input scale.
@@ -216,16 +221,14 @@ export function normalizeDimensions(dimensions: {
   curiosity: number;
   power: number;
   sparkle: number;
-}): Record<string, number> {
-  const MIN = 0;
-  const MAX = 100;
-  const range = MAX - MIN;
+}): NormalizedDimensions {
+  const range = DIMENSION_MAX - DIMENSION_MIN;
   return {
-    mind: (dimensions.mind - MIN) / range,
-    emotion: (dimensions.emotion - MIN) / range,
-    curiosity: (dimensions.curiosity - MIN) / range,
-    power: (dimensions.power - MIN) / range,
-    sparkle: (dimensions.sparkle - MIN) / range,
+    mind: (dimensions.mind - DIMENSION_MIN) / range,
+    emotion: (dimensions.emotion - DIMENSION_MIN) / range,
+    curiosity: (dimensions.curiosity - DIMENSION_MIN) / range,
+    power: (dimensions.power - DIMENSION_MIN) / range,
+    sparkle: (dimensions.sparkle - DIMENSION_MIN) / range,
   };
 }
 
