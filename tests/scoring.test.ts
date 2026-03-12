@@ -12,6 +12,7 @@ import {
   getGradeInfo,
 } from '../src/utils/scoring';
 import { PETS } from '../src/data/gameData';
+import type { Pet } from '../src/types';
 
 // ─── scoreToGrade ─────────────────────────────────────────────────────────────
 
@@ -224,31 +225,77 @@ describe('getMoodInfoNormalized', () => {
 // ─── computeRecommendation ────────────────────────────────────────────────────
 
 describe('computeRecommendation', () => {
-  it('returns a number between 0 and 100 for every pet', () => {
+  it('returns a number between 0 and 100 for every pet/contest combination', () => {
+    const contestIds = ['elegance', 'sweet', 'dashing', 'fresh', 'charm'] as const;
     for (const pet of PETS) {
-      const score = computeRecommendation(pet);
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(100);
+      for (const contestId of contestIds) {
+        const score = computeRecommendation(pet, contestId);
+        expect(score).toBeGreaterThanOrEqual(0);
+        expect(score).toBeLessThanOrEqual(100);
+      }
     }
   });
 
-  it('computes equal-weight average of 5 dimensions', () => {
-    // bubble: mind=55, emotion=85, curiosity=70, power=50, affection=70
-    // sparkle = round(70*0.6 + 50*0.4) = round(42+20) = 62
-    // average = round((55+85+70+50+62)/5) = round(322/5) = round(64.4) = 64
-    const bubble = PETS.find(p => p.id === 'bubble')!;
-    const score = computeRecommendation(bubble);
-    const expectedSparkle = Math.round(bubble.affection * 0.6 + 50 * 0.4);
-    const { mind, emotion, curiosity, power } = bubble.baseStats;
-    const expected = Math.round((mind + emotion + curiosity + power + expectedSparkle) / 5);
-    expect(score).toBe(expected);
+  it('accepts a petId string instead of a Pet object', () => {
+    const scoreById = computeRecommendation('bubble', 'sweet');
+    const scoreByObj = computeRecommendation(PETS.find(p => p.id === 'bubble')!, 'sweet');
+    expect(scoreById).toBe(scoreByObj);
   });
 
-  it('does not mutate the pet object', () => {
+  it('returns 0 for unknown petId', () => {
+    // @ts-expect-error testing invalid input
+    expect(computeRecommendation('nonexistent', 'sweet')).toBe(0);
+  });
+
+  it('returns 0 for unknown contestId', () => {
+    const pet = PETS.find(p => p.id === 'bubble')!;
+    // @ts-expect-error testing invalid input
+    expect(computeRecommendation(pet, 'nonexistent')).toBe(0);
+  });
+
+  it('higher affection (higher critMultiplier) yields a higher or equal score', () => {
+    // Build two synthetic pets identical except for affection
+    const lowAffPet: Pet = {
+      id: 'bubble',
+      name: 'Test Low',
+      icon: '🐾',
+      description: '',
+      element: '',
+      baseStats: { mind: 50, emotion: 50, curiosity: 50, power: 50 },
+      affection: 0,
+      tastePreference: { sweet: 0, sour: 0, bitter: 0, spicy: 0, salty: 0 },
+      colorPrimary: '',
+      colorSecondary: '',
+      skills: [],
+    };
+    const highAffPet: Pet = { ...lowAffPet, affection: 100 };
+    const scoreLow = computeRecommendation(lowAffPet, 'elegance');
+    const scoreHigh = computeRecommendation(highAffPet, 'elegance');
+    expect(scoreHigh).toBeGreaterThanOrEqual(scoreLow);
+  });
+
+  it('does NOT modify the pet object', () => {
     const pet = PETS.find(p => p.id === 'flame')!;
     const originalStats = { ...pet.baseStats };
-    computeRecommendation(pet);
+    computeRecommendation(pet, 'dashing');
     expect(pet.baseStats).toEqual(originalStats);
+  });
+
+  it('deterministic: bubble in sweet contest produces expected all-critical score', () => {
+    // bubble: baseStats { mind:55, emotion:85, curiosity:70, power:50 }, affection:70
+    // skillBonus: mind=10, emotion=50, curiosity=25, power=5 (summed from 3 skills)
+    // critMultiplier = 1 + 70 * 0.01 = 1.7
+    // afterBonus: mind=65, emotion=135, curiosity=95, power=55
+    // afterCrit (capped at 100):
+    //   mind    = min(100, 65*1.7)  = min(100, 110.5)  = 100
+    //   emotion = min(100, 135*1.7) = min(100, 229.5)  = 100
+    //   curiosity = min(100, 95*1.7)= min(100, 161.5)  = 100
+    //   power   = min(100, 55*1.7)  = min(100, 93.5)   = 93.5
+    // sweet weights: { emotion:2.0, curiosity:1.5, power:1.0, mind:0.5 }, totalWeight=5.0
+    // weightedNorm = (0.5/1 + 2.0/1 + 1.5/1 + 0.935) / 5.0 = 4.935 / 5.0 = 0.987
+    // score = round(0.987 * 100) = round(98.7) = 99
+    const score = computeRecommendation('bubble', 'sweet');
+    expect(score).toBe(99);
   });
 });
 
