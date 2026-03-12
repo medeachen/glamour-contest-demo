@@ -1,33 +1,39 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { PETS, FOODS } from '../data/gameData';
+import { PETS, FOODS, DIM_LABELS } from '../data/gameData';
 import type { FoodId } from '../types';
 import { PetModel } from '../components/PetModel';
 import { DynamicRadar } from '../components/DynamicRadar';
+import type { DynamicRadarDataPoint } from '../components/DynamicRadar';
 import { MoodBadge } from '../components/MoodBadge';
 import { calculateMood, calculateFoodBonus } from '../utils/gameLogic';
+import { getMoodInfo, buildDisplayStats, previewFeeding } from '../utils/scoring';
 
 export function FeedingPage() {
   const { setPhase, selectedPet, selectedFoods, addFood, removeFood, clearFoods, selectedContest } = useGameStore();
   const [feedAnim, setFeedAnim] = useState<FoodId | null>(null);
-  const [previewFood, setPreviewFood] = useState<FoodId | null>(null);
 
   if (!selectedPet) { setPhase('petSelect'); return null; }
 
   const pet = PETS.find(p => p.id === selectedPet)!;
   const mood = calculateMood(selectedPet, selectedFoods);
+  const moodInfo = getMoodInfo(mood);
   const foodBonus = calculateFoodBonus(selectedFoods);
 
-  // Preview calculation when hovering a food
-  const previewFoods = previewFood && selectedFoods.length < 3
-    ? [...selectedFoods, previewFood]
-    : selectedFoods;
-  const previewMood = previewFood && selectedFoods.length < 3
-    ? calculateMood(selectedPet, previewFoods)
-    : mood;
-  const previewBonus = previewFood && selectedFoods.length < 3
-    ? calculateFoodBonus(previewFoods)
-    : foodBonus;
+  // Build 5D display stats for radar
+  const baseDisplay = buildDisplayStats(pet.baseStats, pet.affection, mood);
+  const preview = previewFeeding(selectedPet, selectedFoods);
+  const previewDisplay = selectedFoods.length > 0
+    ? buildDisplayStats(preview.after, pet.affection, mood)
+    : undefined;
+
+  // Map to DynamicRadar data format (reuse DIM_LABELS for 4D; sparkle label is fixed as '闪光')
+  const DIM_KEYS_5D = ['mind', 'emotion', 'curiosity', 'power', 'sparkle'] as const;
+  const dynamicRadarData: DynamicRadarDataPoint[] = DIM_KEYS_5D.map((k) => ({
+    name: k === 'sparkle' ? '闪光' : DIM_LABELS[k],
+    current: baseDisplay[k as keyof typeof baseDisplay],
+    predicted: previewDisplay?.[k as keyof typeof previewDisplay],
+  }));
 
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
@@ -36,24 +42,12 @@ export function FeedingPage() {
     if (selectedFoods.length >= 3) return;
     addFood(fid);
     setFeedAnim(fid);
-    setPreviewFood(null);
     setTimeout(() => setFeedAnim(null), 600);
   }
 
-  // Build radar data for DynamicRadar
-  const currentRadarData = [
-    { name: '头脑', current: pet.baseStats.mind + foodBonus.mind, predicted: pet.baseStats.mind + previewBonus.mind },
-    { name: '情感', current: pet.baseStats.emotion + foodBonus.emotion, predicted: pet.baseStats.emotion + previewBonus.emotion },
-    { name: '好奇', current: pet.baseStats.curiosity + foodBonus.curiosity, predicted: pet.baseStats.curiosity + previewBonus.curiosity },
-    { name: '力量', current: pet.baseStats.power + foodBonus.power, predicted: pet.baseStats.power + previewBonus.power },
-  ];
-
-  const hasPreview = previewFood !== null && selectedFoods.length < 3 &&
-    currentRadarData.some(d => d.predicted !== d.current);
-
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #fff8e1, #f3e5f5, #e8f5e9)', padding: '20px', fontFamily: "'PingFang SC', 'Microsoft YaHei', sans-serif" }}>
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, gap: 16 }}>
           <button onClick={() => setPhase('petSelect')} style={{ background: 'white', border: 'none', borderRadius: 12, padding: '8px 16px', cursor: 'pointer', fontSize: 14, color: '#666', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -63,33 +57,45 @@ export function FeedingPage() {
         </div>
 
         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {/* Left: pet + radar */}
-          <div style={{ background: 'white', borderRadius: 24, padding: 24, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', minWidth: 260 }}>
-            <PetModel petId={selectedPet} size={160} animate={true} />
-            <h2 style={{ margin: '8px 0 4px', color: '#444', fontWeight: 800 }}>{pet.icon} {pet.name}</h2>
+          {/* Left: pet display + mood + radar */}
+          <div style={{ background: 'white', borderRadius: 24, padding: 24, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', minWidth: 260, flex: '0 0 auto' }}>
+            <PetModel petId={selectedPet} size={180} animate={true} />
+            <h2 style={{ margin: '8px 0 12px', color: '#444', fontWeight: 800 }}>{pet.icon} {pet.name}</h2>
 
-            {/* Mood badge */}
-            <div style={{ margin: '12px 0', display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: '#888' }}>当前心情</span>
-              <MoodBadge mood={previewFood && selectedFoods.length < 3 ? previewMood : mood} />
+            {/* 3-tier mood badge */}
+            <div style={{ marginBottom: 16 }}>
+              <MoodBadge mood={mood} moodInfo={moodInfo} />
             </div>
 
-            {/* Dynamic radar */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-              <DynamicRadar
-                data={currentRadarData}
-                maxValue={150}
-                size={200}
-                currentColor={accentColor}
-                ariaLabel={`${pet.name}五维属性雷达`}
-              />
-            </div>
-
-            {hasPreview && (
-              <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
-                虚线为喂食 {FOODS.find(f => f.id === previewFood)?.name} 后的预测值
+            {/* Dynamic 5D radar */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>
+                五维能力{selectedFoods.length > 0 ? '（预览变化）' : ''}
               </div>
-            )}
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <DynamicRadar
+                  data={dynamicRadarData}
+                  maxValue={100}
+                  currentColor={accentColor}
+                  size={180}
+                />
+              </div>
+              {selectedFoods.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 6 }}>
+                  {(Object.entries(foodBonus) as [string, number][])
+                    .filter(([, v]) => v !== 0)
+                    .map(([dim, val]) => (
+                      <span key={dim} style={{
+                        fontSize: 11, borderRadius: 8, padding: '2px 8px', fontWeight: 700,
+                        background: val > 0 ? '#e8f5e9' : '#fce4ec',
+                        color: val > 0 ? '#2e7d32' : '#c62828',
+                      }}>
+                        {DIM_LABELS[dim]} {val > 0 ? `+${val}` : val}
+                      </span>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right: food selection */}
@@ -131,32 +137,30 @@ export function FeedingPage() {
             {/* Food buttons */}
             <div style={{ background: 'white', borderRadius: 24, padding: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 12px', color: '#555', fontSize: 16 }}>选择食物</h3>
-              <p style={{ fontSize: 12, color: '#aaa', margin: '0 0 10px' }}>悬停食物可预览属性变化</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {FOODS.map(food => {
                   const pref = pet.tastePreference[food.id];
-                  const prefColor = pref > 0 ? '#4caf50' : pref < 0 ? '#f44336' : '#888';
-                  const moodLabel = pref > 0 ? '😊' : pref < 0 ? '😟' : '😐';
+                  const moodDelta = pref > 0 ? `😍 +${pref}心情` : pref < 0 ? `😣 ${pref}心情` : '😐 无感';
+                  const moodDeltaColor = pref > 0 ? '#4caf50' : pref < 0 ? '#f44336' : '#888';
+                  const bonusText = Object.entries(food.statBonus)
+                    .map(([d, v]) => `${DIM_LABELS[d]}+${v}`)
+                    .join(' ');
                   return (
                     <button key={food.id}
                       onClick={() => handleFeed(food.id)}
-                      onMouseEnter={() => setPreviewFood(food.id)}
-                      onMouseLeave={() => setPreviewFood(null)}
                       disabled={selectedFoods.length >= 3}
                       style={{
-                        background: selectedFoods.length < 3 ? (previewFood === food.id ? '#f5f0ff' : 'linear-gradient(90deg, #fafafa, #f5f0ff)') : '#f5f5f5',
-                        border: previewFood === food.id ? `1.5px solid ${accentColor}` : '1px solid #e0d7f7',
+                        background: selectedFoods.length < 3 ? 'linear-gradient(90deg, #fafafa, #f5f0ff)' : '#f5f5f5',
+                        border: '1px solid #e0d7f7',
                         borderRadius: 14, padding: '10px 16px', cursor: selectedFoods.length < 3 ? 'pointer' : 'not-allowed',
                         display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s',
                       }}>
                       <span style={{ fontSize: 26 }}>{food.icon}</span>
                       <div style={{ flex: 1, textAlign: 'left' }}>
                         <div style={{ fontWeight: 700, color: '#444', fontSize: 14 }}>{food.name}</div>
-                        <div style={{ fontSize: 11, color: '#888' }}>{food.taste}</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>{bonusText}</div>
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: prefColor }}>
-                        {moodLabel} 心情{pref > 0 ? `+${pref}` : pref < 0 ? `${pref}` : ''}
-                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: moodDeltaColor }}>{moodDelta}</div>
                     </button>
                   );
                 })}

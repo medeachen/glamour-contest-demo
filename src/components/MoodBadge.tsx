@@ -1,66 +1,54 @@
-import { useState } from 'react';
-import { mapMoodToTier } from '../utils/scoring';
+import type { MoodInfo } from '../utils/scoring';
 
 interface Props {
   mood: number;
+  moodInfo: MoodInfo;
+  /** When true, shows a compact single-emoji+label badge instead of a full pill */
+  compact?: boolean;
 }
 
-const TIER_CONFIG = {
-  sad: { emoji: '😢', label: '难过', color: '#5c6bc0', bg: '#e8eaf6' },
-  neutral: { emoji: '😐', label: '一般', color: '#f57c00', bg: '#fff3e0' },
-  happy: { emoji: '😊', label: '高兴', color: '#2e7d32', bg: '#e8f5e9' },
-} as const;
-
-export function MoodBadge({ mood }: Props) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const tier = mapMoodToTier(mood);
-  const config = TIER_CONFIG[tier];
-
-  return (
-    <div
-      style={{ position: 'relative', display: 'inline-block' }}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
-      <div
+export function MoodBadge({ mood, moodInfo, compact = false }: Props) {
+  if (compact) {
+    return (
+      <span
+        aria-label={`心情: ${moodInfo.label} (${mood}/100)`}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 6,
-          background: config.bg,
-          color: config.color,
+          gap: 4,
+          background: `${moodInfo.color}22`,
+          color: moodInfo.color,
           borderRadius: 20,
-          padding: '6px 14px',
+          padding: '3px 10px',
           fontWeight: 700,
-          fontSize: 15,
-          border: `1.5px solid ${config.color}44`,
-          cursor: 'default',
+          fontSize: 13,
+          border: `1px solid ${moodInfo.color}55`,
         }}
-        aria-label={`心情：${config.label}（实际值 ${mood}/100）`}
-        role="status"
       >
-        <span role="img" aria-hidden="true">{config.emoji}</span>
-        <span>{config.label}</span>
-      </div>
+        <span role="img" aria-hidden="true">{moodInfo.emoji}</span>
+        {moodInfo.label}
+      </span>
+    );
+  }
 
-      {showTooltip && (
-        <div style={{
-          position: 'absolute',
-          bottom: '110%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
-          borderRadius: 6,
-          padding: '4px 10px',
-          fontSize: 12,
-          whiteSpace: 'nowrap',
-          zIndex: 100,
-          pointerEvents: 'none',
-        }}>
-          心情值: {mood}/100
-        </div>
-      )}
+  return (
+    <div
+      aria-label={`心情: ${moodInfo.label} (${mood}/100)`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: 4,
+        background: `${moodInfo.color}18`,
+        borderRadius: 16,
+        padding: '10px 16px',
+        border: `1px solid ${moodInfo.color}44`,
+      }}
+    >
+      <span role="img" aria-hidden="true" style={{ fontSize: 32 }}>{moodInfo.emoji}</span>
+      <span style={{ fontWeight: 800, color: moodInfo.color, fontSize: 15 }}>{moodInfo.label}</span>
+      <span style={{ fontSize: 11, color: '#999' }}>心情</span>
     </div>
   );
 }

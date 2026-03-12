@@ -3,8 +3,6 @@ import { useGameStore } from '../store/gameStore';
 import { CONTESTS } from '../data/gameData';
 import type { ContestId } from '../types';
 
-// Elemental associations kept in data but not displayed in UI
-
 const CONTEST_BG: Record<ContestId, string> = {
   elegance: 'linear-gradient(135deg, #d0d8f0, #b8c8e8)',
   sweet: 'linear-gradient(135deg, #fce4ec, #f8bbd0)',
@@ -73,7 +71,7 @@ export function LobbyPage() {
               </h2>
               <p style={{ color: '#666', fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 1.6 }}>{c.description}</p>
               <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(255,255,255,0.6)', borderRadius: 12 }}>
-                <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>属性加成</div>
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>关键能力</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {Object.entries(c.weights).sort((a, b) => b[1] - a[1]).map(([dim, w]) => {
                     const labels: Record<string, string> = { mind: '头脑', emotion: '情感', curiosity: '好奇', power: '力量' };

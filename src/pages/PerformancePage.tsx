@@ -16,7 +16,10 @@ export function PerformancePage() {
   const [isCrit, setIsCrit] = useState(false);
   const [displayScore, setDisplayScore] = useState(0);
   const [done, setDone] = useState(false);
-  const [skillScores, setSkillScores] = useState<number[]>([-1, -1, -1]);
+  // Track per-skill scores for real-time display
+  const [skillScores, setSkillScores] = useState<number[]>([0, 0, 0]);
+  const [skillStates, setSkillStates] = useState<('idle' | 'active' | 'done')[]>(['idle', 'idle', 'idle']);
+  const [skillCrits, setSkillCrits] = useState<boolean[]>([false, false, false]);
   const finalRef = useRef<FinalScore | null>(null);
   const runOnce = useRef(false);
 
@@ -28,44 +31,49 @@ export function PerformancePage() {
     const result = performContest(selectedPet, selectedContest, selectedFoods);
     finalRef.current = result;
 
-    // Sequence: skill 0 at t=0, skill 1 at t=3000, skill 2 at t=6000, done at t=9500
+    // Compute per-skill scores from weighted dims divided by 3 skills
+    const dims = ['mind', 'emotion', 'curiosity', 'power'] as const;
+    const pet = PETS.find(p => p.id === selectedPet)!;
+    const perSkillScores = pet.skills.map((skill) => {
+      return dims.reduce((s, d) => s + (skill.bonus[d] ?? 0) * (result.weights[d] ?? 1), 0);
+    });
+
     for (let i = 0; i < 3; i++) {
       const delay = i * 3000;
+
       setTimeout(() => {
+        // Each skill gets its own independent crit roll
+        const hasCrit = Math.random() < result.critRate;
         setCurrentSkill(i);
         setSkillVisible(true);
-        const hasCrit = Math.random() < result.critRate;
         setIsCrit(hasCrit);
+        setSkillCrits(prev => { const next = [...prev]; next[i] = hasCrit; return next; });
+        setSkillStates(prev => { const next = [...prev]; next[i] = 'active'; return next; });
 
         // Animate skill score
-        const dims = ['mind', 'emotion', 'curiosity', 'power'] as const;
-        const skillPet = PETS.find(p => p.id === selectedPet);
-        const skillDimScore = skillPet
-          ? dims.reduce((sum, d) => sum + (skillPet.skills[i]?.bonus[d] ?? 0), 0)
-          : 0;
-        const baseScore = 40 + skillDimScore * 0.6 + (hasCrit ? 20 : 0);
-        const target = Math.min(100, Math.max(10, baseScore));
-
+        const target = perSkillScores[i] * (hasCrit ? result.critMultiplier : 1);
         let current = 0;
-        const step = target / 20;
-        const iv = setInterval(() => {
-          current = Math.min(current + step, target);
-          setSkillScores(prev => {
-            const next = [...prev];
-            next[i] = Math.round(current);
-            return next;
-          });
-          if (current >= target) clearInterval(iv);
+        const steps = 30;
+        const inc = target / steps;
+        let step = 0;
+        const scoreInterval = setInterval(() => {
+          step++;
+          current = Math.min(current + inc, target);
+          setSkillScores(prev => { const next = [...prev]; next[i] = current; return next; });
+          if (step >= steps) clearInterval(scoreInterval);
         }, 50);
 
-        setTimeout(() => setSkillVisible(false), 2200);
+        setTimeout(() => {
+          setSkillVisible(false);
+          setSkillStates(prev => { const next = [...prev]; next[i] = 'done'; return next; });
+        }, 2200);
       }, delay);
     }
 
     setTimeout(() => {
       setFinalScore(result);
       saveHighScore();
-      // Animate score
+      // Animate total score
       const target = result.total;
       let current = 0;
       const step = target / 60;
@@ -100,32 +108,23 @@ export function PerformancePage() {
         />
       </div>
 
-      {/* Skill indicator + real-time scores */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+      {/* Real-time skill scores panel */}
+      <div style={{ display: 'flex', gap: 12, marginTop: 20, width: '100%', maxWidth: 460, flexDirection: 'column' }}>
         {pet.skills.map((skill, i) => (
-          <div key={i} style={{
-            padding: '10px 18px', borderRadius: 14, minWidth: 160,
-            background: currentSkill === i ? `${SKILL_COLORS[i]}22` : 'rgba(255,255,255,0.06)',
-            border: `1.5px solid ${currentSkill >= i ? SKILL_COLORS[i] : 'rgba(255,255,255,0.1)'}`,
-            transition: 'all 0.4s',
-          }}>
-            <div style={{ color: 'white', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
-              {currentSkill > i ? '✅' : currentSkill === i ? '▶' : '○'} {skill.name}
-            </div>
-            {skillScores[i] >= 0 && (
-              <SkillScore
-                skillName={skill.name}
-                score={skillScores[i]}
-                color={SKILL_COLORS[i]}
-              />
-            )}
-          </div>
+          <SkillScore
+            key={i}
+            skillName={skill.name}
+            score={skillScores[i]}
+            isCrit={skillCrits[i]}
+            state={skillStates[i]}
+            color={SKILL_COLORS[i % SKILL_COLORS.length]}
+          />
         ))}
       </div>
 
-      {/* Score display */}
+      {/* Total score display */}
       {done && (
-        <div style={{ marginTop: 28, textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
+        <div style={{ marginTop: 28, textAlign: 'center' }}>
           <div style={{ color: '#aaa', fontSize: 14, marginBottom: 4 }}>最终得分</div>
           <div style={{ fontSize: 56, fontWeight: 900, color: '#ffd700', textShadow: '0 0 30px #ffd700' }}>
             {displayScore}

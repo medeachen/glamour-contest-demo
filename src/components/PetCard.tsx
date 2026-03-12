@@ -1,6 +1,5 @@
 import type { Pet } from '../types';
 import { AppRadarChart } from './AppRadarChart';
-import { computeRecommendation } from '../utils/scoring';
 
 const MAX_DESCRIPTION_LENGTH = 28;
 
@@ -13,7 +12,8 @@ interface Props {
 }
 
 export function PetCard({ pet, recommended = false, accentColor = '#9c27b0', isSelected = false, onClick }: Props) {
-  const score = computeRecommendation(pet);
+  const { mind, emotion, curiosity, power } = pet.baseStats;
+  const score = Math.round((mind + emotion + curiosity + power) / 4);
 
   const radarData = [
     { name: '头脑', value: pet.baseStats.mind },
@@ -72,7 +72,7 @@ export function PetCard({ pet, recommended = false, accentColor = '#9c27b0', isS
 
       {/* Name */}
       <div style={{ fontWeight: 800, fontSize: 16, color: '#333', marginBottom: 4 }}>{pet.name}</div>
-      <div style={{ color: '#888', fontSize: 11, marginBottom: 8, lineHeight: 1.5 }}>{pet.description.slice(0, MAX_DESCRIPTION_LENGTH)}…</div>
+      <div style={{ color: '#888', fontSize: 11, marginBottom: 8, lineHeight: 1.5 }}>{pet.description.length > MAX_DESCRIPTION_LENGTH ? `${pet.description.slice(0, MAX_DESCRIPTION_LENGTH)}…` : pet.description}</div>
 
       {/* Radar thumbnail */}
       <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
