@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { PETS } from '../data/gameData';
-import type { PetId } from '../types';
+import type { Pet, PetId } from '../types';
 import { PetModel } from '../components/PetModel';
 import { RadarChart } from '../components/RadarChart';
 import { computeRecommendation, buildDisplayStats } from '../utils/scoring';
@@ -21,16 +21,12 @@ export function PetSelectPage() {
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
 
-  // Pre-compute recommendation scores once to avoid redundant calls during sort
-  const recScores = selectedContest
-    ? Object.fromEntries(PETS.map(p => [p.id, computeRecommendation(p.id, selectedContest)]))
-    : null;
-
-  // Sort pets by recommendation score descending when a contest is selected
-  const sortedPets = recScores
-    ? [...PETS].sort((a, b) => recScores[b.id] - recScores[a.id])
-    : [...PETS];
-  const topPetId = recScores ? (sortedPets[0]?.id ?? null) : null;
+  // Sort pets by computeRecommendation (all-critical) for selected contest, falling back
+  // to elegance weights when no contest is chosen yet (lobby enforces selection first).
+  const getScore = (pet: Pet) =>
+    computeRecommendation(pet, selectedContest ?? 'elegance');
+  const sortedPets = [...PETS].sort((a, b) => getScore(b) - getScore(a));
+  const topPetId = sortedPets[0]?.id ?? null;
 
   const activePet = selectedPet ? PETS.find(p => p.id === selectedPet) : null;
 
@@ -54,7 +50,7 @@ export function PetSelectPage() {
               const isSelected = selectedPet === pet.id;
               const isHov = hovered === pet.id;
               const isTop = pet.id === topPetId;
-              const recScore = recScores ? recScores[pet.id] : null;
+              const recScore = selectedContest ? computeRecommendation(pet, selectedContest) : null;
               return (
                 <div key={pet.id}
                   onClick={() => handleSelect(pet.id)}

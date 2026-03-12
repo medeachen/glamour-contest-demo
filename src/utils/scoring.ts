@@ -152,47 +152,50 @@ export function getFoodBonusInfo(foodId: FoodId) {
   return FOODS.find(f => f.id === foodId) ?? null;
 }
 
-// ─── All-critical simulation recommendation score ─────────────────────────────
+// ─── Equal-weight 5D recommendation score (legacy) ───────────────────────────
 
 /**
- * Compute a 0–100 recommendation score for a pet in a given contest by
- * simulating the all-critical best-case scenario.
- *
- * Algorithm:
- *  1. afterBonus[d] = baseStats[d] + foodBonus[d] + skillBonus[d]
- *  2. afterCrit[d]  = min(100, afterBonus[d] × critMultiplier)   (all-crit)
- *  3. fraction      = Σ(afterCrit[d] × weights[d]) / Σ(100 × weights[d])
- *  4. return Math.round(fraction × 100)
- *
- * @param petOrId  - Pet object or PetId string
- * @param contestId - Contest to evaluate against
- * @param foods    - Optional foods already fed (default: none)
+ * @deprecated since 2026-03-12. Use computeRecommendation(petOrPetId, contestId) instead.
+ * Kept for any callers that don't yet pass a contestId.
  */
-export function computeRecommendation(
-  petOrId: Pet | PetId,
-  contestId: ContestId,
-  foods: FoodId[] = [],
-): number {
-  const pet = typeof petOrId === 'string' ? PETS.find(p => p.id === petOrId) : petOrId;
+export function computeRecommendationLegacy(pet: Pet): number {
+  const NEUTRAL_MOOD = 50;
+  const stats = buildDisplayStats(pet.baseStats, pet.affection, NEUTRAL_MOOD);
+  const { mind, emotion, curiosity, power, sparkle } = stats;
+  return Math.round((mind + emotion + curiosity + power + sparkle) / 5);
+}
+
+// ─── All-critical best-case recommendation score ─────────────────────────────
+
+/**
+ * Compute a 0–100 recommendation score for a pet in the given contest by
+ * simulating the "best-case all-critical" outcome:
+ *  1. afterBonus[d] = pet.baseStats[d] + skillBonus[d]
+ *  2. critMultiplier = calculateCritMultiplier(pet.affection)
+ *  3. afterCrit[d]  = min(100, afterBonus[d] * critMultiplier)
+ *  4. score = round( sum((afterCrit[d]/100) * weights[d]) / totalWeight * 100 )
+ *
+ * Does NOT modify the pet object.
+ */
+export function computeRecommendation(petOrPetId: Pet | PetId, contestId: ContestId): number {
+  const pet: Pet | undefined =
+    typeof petOrPetId === 'string' ? PETS.find(p => p.id === petOrPetId) : petOrPetId;
   const contest = CONTESTS.find(c => c.id === contestId);
   if (!pet || !contest) return 0;
 
-  const foodBonus = calculateFoodBonus(foods);
   const skillBonus = calculateSkillBonus(pet.id);
   const critMultiplier = calculateCritMultiplier(pet.affection);
 
   const dims = ['mind', 'emotion', 'curiosity', 'power'] as const;
-  let weightedSum = 0;
-  let totalWeight = 0;
+  const totalWeight = dims.reduce((s, d) => s + contest.weights[d], 0);
 
-  for (const d of dims) {
-    const afterBonus = pet.baseStats[d] + foodBonus[d] + skillBonus[d];
+  const weightedNormalized = dims.reduce((sum, d) => {
+    const afterBonus = pet.baseStats[d] + skillBonus[d];
     const afterCrit = Math.min(100, afterBonus * critMultiplier);
-    weightedSum += afterCrit * contest.weights[d];
-    totalWeight += 100 * contest.weights[d];
-  }
+    return sum + (afterCrit / 100) * contest.weights[d];
+  }, 0);
 
-  return Math.round((weightedSum / totalWeight) * 100);
+  return Math.round((weightedNormalized / totalWeight) * 100);
 }
 
 // ─── 0–100 rank mapping ──────────────────────────────────────────────────────
@@ -223,4 +226,52 @@ export interface MoodInfoNormalized extends Omit<MoodInfo, 'level'> {
 export function getMoodInfoNormalized(mood: number): MoodInfoNormalized {
   const info = getMoodInfo(mood);
   return { ...info, level: info.level === 'normal' ? 'neutral' : (info.level as MoodLevelNormalized) };
+}
+
+// ─── Feature: normalized dimensions (0–1 range) ───────────────────────────────
+
+export interface NormalizedDimensions {
+  mind: number;
+  emotion: number;
+  curiosity: number;
+  power: number;
+  sparkle: number;
+}
+
+/** Expected input scale minimum for normalizeDimensions. */
+const DIMENSION_MIN = 0;
+/** Expected input scale maximum for normalizeDimensions. */
+const DIMENSION_MAX = 100;
+
+/**
+ * Normalizes a set of five dimension values to [0,1] range
+ * using min/max normalization against a 0-100 input scale.
+ */
+export function normalizeDimensions(dimensions: {
+  mind: number;
+  emotion: number;
+  curiosity: number;
+  power: number;
+  sparkle: number;
+}): NormalizedDimensions {
+  const range = DIMENSION_MAX - DIMENSION_MIN;
+  return {
+    mind: (dimensions.mind - DIMENSION_MIN) / range,
+    emotion: (dimensions.emotion - DIMENSION_MIN) / range,
+    curiosity: (dimensions.curiosity - DIMENSION_MIN) / range,
+    power: (dimensions.power - DIMENSION_MIN) / range,
+    sparkle: (dimensions.sparkle - DIMENSION_MIN) / range,
+  };
+}
+
+// ─── Feature: 3-tier mood string mapping ─────────────────────────────────────
+
+/**
+ * Maps a mood value (0-100) to a tier string.
+ * 0-33 → 'sad', 34-67 → 'neutral', 68-100 → 'happy'
+ */
+export function mapMoodToTier(mood: number): 'sad' | 'neutral' | 'happy' {
+  if (mood <= 33) return 'sad';
+  if (mood <= 67) return 'neutral';
+  return 'happy';
 }

@@ -10,8 +10,11 @@ import {
   previewFeeding,
   buildDisplayStats,
   getGradeInfo,
+  normalizeDimensions,
+  mapMoodToTier,
 } from '../src/utils/scoring';
 import { PETS } from '../src/data/gameData';
+import type { Pet } from '../src/types';
 
 // ─── scoreToGrade ─────────────────────────────────────────────────────────────
 
@@ -224,50 +227,77 @@ describe('getMoodInfoNormalized', () => {
 // ─── computeRecommendation ────────────────────────────────────────────────────
 
 describe('computeRecommendation', () => {
-  it('returns a number between 0 and 100 for every pet/contest combo', () => {
+  it('returns a number between 0 and 100 for every pet/contest combination', () => {
+    const contestIds = ['elegance', 'sweet', 'dashing', 'fresh', 'charm'] as const;
     for (const pet of PETS) {
-      const score = computeRecommendation(pet.id, 'sweet');
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(100);
+      for (const contestId of contestIds) {
+        const score = computeRecommendation(pet, contestId);
+        expect(score).toBeGreaterThanOrEqual(0);
+        expect(score).toBeLessThanOrEqual(100);
+      }
     }
   });
 
-  it('accepts a Pet object or a PetId string and returns the same result', () => {
+  it('accepts a petId string instead of a Pet object', () => {
+    const scoreById = computeRecommendation('bubble', 'sweet');
+    const scoreByObj = computeRecommendation(PETS.find(p => p.id === 'bubble')!, 'sweet');
+    expect(scoreById).toBe(scoreByObj);
+  });
+
+  it('returns 0 for unknown petId', () => {
+    // @ts-expect-error testing invalid input
+    expect(computeRecommendation('nonexistent', 'sweet')).toBe(0);
+  });
+
+  it('returns 0 for unknown contestId', () => {
     const pet = PETS.find(p => p.id === 'bubble')!;
-    expect(computeRecommendation(pet, 'elegance')).toBe(computeRecommendation('bubble', 'elegance'));
-  });
-
-  it('returns higher score for a pet whose stats align well with the contest weights', () => {
-    // dashing contest weights power (2.0) and mind (1.5) heavily; rock has high mind+power
-    // bubble has high emotion but low power, so rock should dominate in dashing
-    const rockDashing   = computeRecommendation('rock',   'dashing');
-    const bubbleDashing = computeRecommendation('bubble', 'dashing');
-    expect(rockDashing).toBeGreaterThan(bubbleDashing);
-  });
-
-  it('score increases with higher affection (all-critical multiplier grows)', () => {
-    // Clone bubble with low vs high affection to verify critMultiplier effect
-    const petBase = PETS.find(p => p.id === 'bubble')!;
-    const lowAff  = { ...petBase, affection: 0 };
-    const highAff = { ...petBase, affection: 100 };
-    expect(computeRecommendation(highAff, 'sweet')).toBeGreaterThan(computeRecommendation(lowAff, 'sweet'));
-  });
-
-  it('returns 0 for an invalid contestId', () => {
     // @ts-expect-error testing invalid input
-    expect(computeRecommendation('bubble', 'invalid')).toBe(0);
+    expect(computeRecommendation(pet, 'nonexistent')).toBe(0);
   });
 
-  it('returns 0 for an invalid petId', () => {
-    // @ts-expect-error testing invalid input
-    expect(computeRecommendation('invalid', 'sweet')).toBe(0);
+  it('higher affection (higher critMultiplier) yields a higher or equal score', () => {
+    // Build two synthetic pets identical except for affection
+    const lowAffPet: Pet = {
+      id: 'bubble',
+      name: 'Test Low',
+      icon: '🐾',
+      description: '',
+      element: '',
+      baseStats: { mind: 50, emotion: 50, curiosity: 50, power: 50 },
+      affection: 0,
+      tastePreference: { sweet: 0, sour: 0, bitter: 0, spicy: 0, salty: 0 },
+      colorPrimary: '',
+      colorSecondary: '',
+      skills: [],
+    };
+    const highAffPet: Pet = { ...lowAffPet, affection: 100 };
+    const scoreLow = computeRecommendation(lowAffPet, 'elegance');
+    const scoreHigh = computeRecommendation(highAffPet, 'elegance');
+    expect(scoreHigh).toBeGreaterThanOrEqual(scoreLow);
   });
 
-  it('does not mutate the pet object', () => {
+  it('does NOT modify the pet object', () => {
     const pet = PETS.find(p => p.id === 'flame')!;
     const originalStats = { ...pet.baseStats };
     computeRecommendation(pet, 'dashing');
     expect(pet.baseStats).toEqual(originalStats);
+  });
+
+  it('deterministic: bubble in sweet contest produces expected all-critical score', () => {
+    // bubble: baseStats { mind:55, emotion:85, curiosity:70, power:50 }, affection:70
+    // skillBonus: mind=10, emotion=50, curiosity=25, power=5 (summed from 3 skills)
+    // critMultiplier = 1 + 70 * 0.01 = 1.7
+    // afterBonus: mind=65, emotion=135, curiosity=95, power=55
+    // afterCrit (capped at 100):
+    //   mind    = min(100, 65*1.7)  = min(100, 110.5)  = 100
+    //   emotion = min(100, 135*1.7) = min(100, 229.5)  = 100
+    //   curiosity = min(100, 95*1.7)= min(100, 161.5)  = 100
+    //   power   = min(100, 55*1.7)  = min(100, 93.5)   = 93.5
+    // sweet weights: { emotion:2.0, curiosity:1.5, power:1.0, mind:0.5 }, totalWeight=5.0
+    // weightedNorm = (0.5/1 + 2.0/1 + 1.5/1 + 0.935) / 5.0 = 4.935 / 5.0 = 0.987
+    // score = round(0.987 * 100) = round(98.7) = 99
+    const score = computeRecommendation('bubble', 'sweet');
+    expect(score).toBe(99);
   });
 });
 
@@ -296,5 +326,89 @@ describe('mapScoreToRank', () => {
     expect(mapScoreToRank(59)).toBe('C');
     expect(mapScoreToRank(30)).toBe('C');
     expect(mapScoreToRank(0)).toBe('C');
+  });
+});
+
+// ─── normalizeDimensions ─────────────────────────────────────────────────────
+
+describe('normalizeDimensions', () => {
+  it('normalizes all-zero dims to 0', () => {
+    const result = normalizeDimensions({ mind: 0, emotion: 0, curiosity: 0, power: 0, sparkle: 0 });
+    expect(result.mind).toBe(0);
+    expect(result.emotion).toBe(0);
+    expect(result.curiosity).toBe(0);
+    expect(result.power).toBe(0);
+    expect(result.sparkle).toBe(0);
+  });
+
+  it('normalizes all-100 dims to 1', () => {
+    const result = normalizeDimensions({ mind: 100, emotion: 100, curiosity: 100, power: 100, sparkle: 100 });
+    expect(result.mind).toBe(1);
+    expect(result.emotion).toBe(1);
+    expect(result.curiosity).toBe(1);
+    expect(result.power).toBe(1);
+    expect(result.sparkle).toBe(1);
+  });
+
+  it('normalizes 50 to 0.5', () => {
+    const result = normalizeDimensions({ mind: 50, emotion: 50, curiosity: 50, power: 50, sparkle: 50 });
+    expect(result.mind).toBeCloseTo(0.5);
+    expect(result.sparkle).toBeCloseTo(0.5);
+  });
+
+  it('normalizes mixed values independently', () => {
+    const result = normalizeDimensions({ mind: 25, emotion: 75, curiosity: 0, power: 100, sparkle: 50 });
+    expect(result.mind).toBeCloseTo(0.25);
+    expect(result.emotion).toBeCloseTo(0.75);
+    expect(result.curiosity).toBe(0);
+    expect(result.power).toBe(1);
+    expect(result.sparkle).toBeCloseTo(0.5);
+  });
+});
+
+// ─── mapMoodToTier ────────────────────────────────────────────────────────────
+
+describe('mapMoodToTier', () => {
+  it('returns sad for mood 0-33', () => {
+    expect(mapMoodToTier(0)).toBe('sad');
+    expect(mapMoodToTier(20)).toBe('sad');
+    expect(mapMoodToTier(33)).toBe('sad');
+  });
+
+  it('returns neutral for mood 34-67', () => {
+    expect(mapMoodToTier(34)).toBe('neutral');
+    expect(mapMoodToTier(50)).toBe('neutral');
+    expect(mapMoodToTier(67)).toBe('neutral');
+  });
+
+  it('returns happy for mood 68-100', () => {
+    expect(mapMoodToTier(68)).toBe('happy');
+    expect(mapMoodToTier(85)).toBe('happy');
+    expect(mapMoodToTier(100)).toBe('happy');
+  });
+});
+
+// ─── computeRecommendation (feature branch: Pet-based API) ───────────────────
+
+describe('computeRecommendation – Pet object API', () => {
+  const makeTestPet = (stats: { mind: number; emotion: number; curiosity: number; power: number }, affection = 70): Pet => ({
+    id: 'bubble',
+    name: 'Test',
+    icon: '🐾',
+    description: '',
+    element: '',
+    baseStats: stats,
+    affection,
+    tastePreference: { sweet: 0, sour: 0, bitter: 0, spicy: 0, salty: 0 },
+    colorPrimary: '',
+    colorSecondary: '',
+    skills: [],
+  });
+
+  it('does NOT modify the pet object', () => {
+    const original = makeTestPet({ mind: 70, emotion: 80, curiosity: 60, power: 50 });
+    const clone = JSON.parse(JSON.stringify(original));
+    computeRecommendation(original);
+    expect(original).toEqual(clone);
   });
 });
