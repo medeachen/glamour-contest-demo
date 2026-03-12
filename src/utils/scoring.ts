@@ -71,7 +71,7 @@ const MOOD_TABLE: MoodInfo[] = [
 
 /**
  * Map a 0–100 mood value to one of three tiers.
- * sad: 0–33 | normal: 34–67 | happy: 68–100
+ * sad: 0–33 | neutral: 34–67 | happy: 68–100
  */
 export function getMoodInfo(mood: number): MoodInfo {
   if (mood <= 33) return MOOD_TABLE[0];
