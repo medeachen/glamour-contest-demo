@@ -1,9 +1,10 @@
 /**
  * scoring.ts — UI-layer scoring utilities.
  * Wraps existing game-logic functions and provides helpers for:
- *  - Recommendation scoring for pet selection screen
- *  - Grade label mapping (S/A/B/C/D)
- *  - 3-tier mood level mapping
+ *  - Recommendation scoring for pet selection screen (contest-weighted: calcRecommendScore;
+ *    equal-weight 5D: computeRecommendation)
+ *  - Grade label mapping (S/A/B/C/D via scoreToGrade; S/A/B/C via mapScoreToRank)
+ *  - 3-tier mood level mapping ('sad'|'neutral'|'happy'; legacy 'normal' via normalizeMoodLevel)
  *  - Feeding stat preview / prediction
  */
 
