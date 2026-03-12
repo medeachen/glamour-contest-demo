@@ -1,14 +1,13 @@
-import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { PETS } from '../data/gameData';
 import type { PetId } from '../types';
 import { PetModel } from '../components/PetModel';
-import { RadarChart } from '../components/RadarChart';
-import { calcRecommendScore, getRankedPets, buildDisplayStats } from '../utils/scoring';
+import { PetCard } from '../components/PetCard';
+import { AppRadarChart } from '../components/AppRadarChart';
+import { computeRecommendation, buildDisplayStats } from '../utils/scoring';
 
 export function PetSelectPage() {
   const { setPhase, selectPet, selectedPet, selectedContest } = useGameStore();
-  const [hovered, setHovered] = useState<PetId | null>(null);
 
   function handleSelect(id: PetId) {
     selectPet(id);
@@ -21,17 +20,14 @@ export function PetSelectPage() {
   const contestColors: Record<string, string> = { elegance: '#3a5080', sweet: '#e91e8c', dashing: '#f57c00', fresh: '#2e7d32', charm: '#c62828' };
   const accentColor = selectedContest ? contestColors[selectedContest] : '#9c27b0';
 
-  const ranked = selectedContest ? getRankedPets(selectedContest) : null;
-  const topPetId = ranked ? ranked[0].petId : null;
+  // Neutral baseline mood used for radar preview on selection screen (no food selected yet)
+  const PREVIEW_MOOD_VALUE = 50;
 
-  // Sort pets: recommended first
-  const sortedPets = ranked
-    ? [...PETS].sort((a, b) => {
-        const ra = ranked.find(r => r.petId === a.id)?.score ?? 0;
-        const rb = ranked.find(r => r.petId === b.id)?.score ?? 0;
-        return rb - ra;
-      })
-    : PETS;
+  // Sort pets by equal-weight 5D recommendation score
+  const sortedPets = [...PETS].sort((a, b) => computeRecommendation(b) - computeRecommendation(a));
+
+  // Determine top recommended pet (by computeRecommendation)
+  const topPetId = sortedPets[0]?.id ?? null;
 
   const activePet = selectedPet ? PETS.find(p => p.id === selectedPet) : null;
 
@@ -49,69 +45,44 @@ export function PetSelectPage() {
         {/* ── Horizontal 3-column layout ── */}
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-          {/* LEFT column – pet cards list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 200, flex: '0 0 auto' }}>
+          {/* LEFT column – pet cards using PetCard component */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 220, flex: '0 0 auto' }}>
             {sortedPets.map((pet) => {
-              const isSelected = selectedPet === pet.id;
-              const isHov = hovered === pet.id;
               const isTop = pet.id === topPetId;
-              const recScore = selectedContest ? calcRecommendScore(pet.id, selectedContest) : null;
               return (
-                <div key={pet.id}
+                <PetCard
+                  key={pet.id}
+                  pet={pet}
+                  recommended={isTop}
+                  accentColor={accentColor}
+                  isSelected={selectedPet === pet.id}
                   onClick={() => handleSelect(pet.id)}
-                  onMouseEnter={() => setHovered(pet.id)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{
-                    background: 'white',
-                    borderRadius: 16,
-                    padding: '12px 16px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    boxShadow: isSelected ? `0 4px 20px ${accentColor}44` : isHov ? '0 4px 16px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.06)',
-                    border: isSelected ? `2px solid ${accentColor}` : '2px solid transparent',
-                    transform: isHov || isSelected ? 'translateX(4px)' : 'none',
-                    transition: 'all 0.25s',
-                    position: 'relative',
-                  }}>
-                  {isTop && (
-                    <div style={{
-                      position: 'absolute',
-                      top: -8, right: 8,
-                      background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
-                      color: '#fff',
-                      fontSize: 10,
-                      fontWeight: 800,
-                      borderRadius: 8,
-                      padding: '2px 8px',
-                      boxShadow: '0 2px 6px rgba(255,140,0,0.4)',
-                    }}>⭐ 最推荐</div>
-                  )}
-                  <span style={{ fontSize: 28 }}>{pet.icon}</span>
-                  <div>
-                    <div style={{ fontWeight: 800, color: '#333', fontSize: 15 }}>{pet.name}</div>
-                    {recScore !== null && (
-                      <div style={{ fontSize: 11, color: accentColor, fontWeight: 600 }}>适配度 {recScore}%</div>
-                    )}
-                  </div>
-                  {isSelected && <span style={{ marginLeft: 'auto', color: accentColor, fontWeight: 800 }}>✓</span>}
-                </div>
+                />
               );
             })}
           </div>
 
-          {/* CENTER column – radar chart */}
+          {/* CENTER column – AppRadarChart */}
           <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             {activePet ? (
               <div style={{ background: 'white', borderRadius: 24, padding: 28, boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center', width: '100%' }}>
                 <div style={{ fontSize: 13, color: '#999', marginBottom: 4 }}>五维能力雷达</div>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-                  <RadarChart
-                    values={buildDisplayStats(activePet.baseStats, activePet.affection, 70)}
+                  <AppRadarChart
+                    data={(() => {
+                      const s = buildDisplayStats(activePet.baseStats, activePet.affection, PREVIEW_MOOD_VALUE);
+                      return [
+                        { name: '头脑', value: s.mind },
+                        { name: '情感', value: s.emotion },
+                        { name: '好奇', value: s.curiosity },
+                        { name: '力量', value: s.power },
+                        { name: '闪光', value: s.sparkle },
+                      ];
+                    })()}
                     maxValue={100}
                     color={accentColor}
                     size={220}
+                    ariaLabel={`${activePet.name}五维能力雷达`}
                   />
                 </div>
                 <div style={{ fontSize: 12, color: '#aaa' }}>悬停数据点查看精确数值</div>

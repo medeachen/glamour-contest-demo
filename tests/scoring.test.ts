@@ -7,7 +7,11 @@ import {
   previewFeeding,
   buildDisplayStats,
   getGradeInfo,
+  computeRecommendation,
+  mapScoreToRank,
+  normalizeMoodLevel,
 } from '../src/utils/scoring';
+import { PETS } from '../src/data/gameData';
 
 // ─── scoreToGrade ─────────────────────────────────────────────────────────────
 
@@ -70,16 +74,16 @@ describe('getMoodInfo – 3-tier mapping', () => {
     expect(getMoodInfo(33).level).toBe('sad');
   });
 
-  it('maps 34 → normal (lower boundary)', () => {
-    expect(getMoodInfo(34).level).toBe('normal');
+  it('maps 34 → neutral (lower boundary)', () => {
+    expect(getMoodInfo(34).level).toBe('neutral');
   });
 
-  it('maps 50 → normal', () => {
-    expect(getMoodInfo(50).level).toBe('normal');
+  it('maps 50 → neutral', () => {
+    expect(getMoodInfo(50).level).toBe('neutral');
   });
 
-  it('maps 67 → normal (upper boundary)', () => {
-    expect(getMoodInfo(67).level).toBe('normal');
+  it('maps 67 → neutral (upper boundary)', () => {
+    expect(getMoodInfo(67).level).toBe('neutral');
   });
 
   it('maps 68 → happy (lower boundary)', () => {
@@ -187,5 +191,75 @@ describe('buildDisplayStats', () => {
   it('caps sparkle at 100', () => {
     const stats = buildDisplayStats({ mind: 55, emotion: 85, curiosity: 70, power: 50 }, 100, 100);
     expect(stats.sparkle).toBeLessThanOrEqual(100);
+  });
+});
+
+// ─── computeRecommendation ────────────────────────────────────────────────────
+
+describe('computeRecommendation', () => {
+  it('returns a number between 0 and 100 for any pet', () => {
+    for (const pet of PETS) {
+      const score = computeRecommendation(pet);
+      expect(score).toBeGreaterThanOrEqual(0);
+      expect(score).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('does not mutate the pet object', () => {
+    const pet = PETS.find(p => p.id === 'bubble')!;
+    const originalStats = { ...pet.baseStats };
+    computeRecommendation(pet);
+    expect(pet.baseStats).toEqual(originalStats);
+  });
+
+  it('computes equal-weight average of 5 dimensions', () => {
+    const pet = PETS.find(p => p.id === 'bubble')!;
+    const display = buildDisplayStats(pet.baseStats, pet.affection, 50);
+    const expected = Math.round(
+      Math.min(100, (display.mind + display.emotion + display.curiosity + display.power + display.sparkle) / 5)
+    );
+    expect(computeRecommendation(pet)).toBe(expected);
+  });
+});
+
+// ─── mapScoreToRank ────────────────────────────────────────────────────────────
+
+describe('mapScoreToRank', () => {
+  it('returns S for score >= 90', () => {
+    expect(mapScoreToRank(90)).toBe('S');
+    expect(mapScoreToRank(95)).toBe('S');
+    expect(mapScoreToRank(100)).toBe('S');
+  });
+
+  it('returns A for score >= 75 and < 90', () => {
+    expect(mapScoreToRank(75)).toBe('A');
+    expect(mapScoreToRank(80)).toBe('A');
+    expect(mapScoreToRank(89)).toBe('A');
+  });
+
+  it('returns B for score >= 60 and < 75', () => {
+    expect(mapScoreToRank(60)).toBe('B');
+    expect(mapScoreToRank(67)).toBe('B');
+    expect(mapScoreToRank(74)).toBe('B');
+  });
+
+  it('returns C for score < 60', () => {
+    expect(mapScoreToRank(59)).toBe('C');
+    expect(mapScoreToRank(30)).toBe('C');
+    expect(mapScoreToRank(0)).toBe('C');
+  });
+});
+
+// ─── normalizeMoodLevel (backward-compat adapter) ─────────────────────────────
+
+describe('normalizeMoodLevel', () => {
+  it('converts legacy "normal" to "neutral"', () => {
+    expect(normalizeMoodLevel('normal')).toBe('neutral');
+  });
+
+  it('passes through valid values unchanged', () => {
+    expect(normalizeMoodLevel('sad')).toBe('sad');
+    expect(normalizeMoodLevel('neutral')).toBe('neutral');
+    expect(normalizeMoodLevel('happy')).toBe('happy');
   });
 });

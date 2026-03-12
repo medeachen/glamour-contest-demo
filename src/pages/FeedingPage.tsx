@@ -3,7 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { PETS, FOODS, DIM_LABELS } from '../data/gameData';
 import type { FoodId } from '../types';
 import { PetModel } from '../components/PetModel';
-import { RadarChart } from '../components/RadarChart';
+import { DynamicRadar } from '../components/DynamicRadar';
 import { MoodBadge } from '../components/MoodBadge';
 import { calculateMood, calculateFoodBonus } from '../utils/gameLogic';
 import { getMoodInfo, buildDisplayStats, previewFeeding } from '../utils/scoring';
@@ -58,19 +58,24 @@ export function FeedingPage() {
               <MoodBadge mood={mood} moodInfo={moodInfo} />
             </div>
 
-            {/* Dynamic 5D radar */}
+            {/* Dynamic 5D radar with DynamicRadar for preview */}
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>
                 五维能力{selectedFoods.length > 0 ? '（预览变化）' : ''}
               </div>
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <RadarChart
-                  values={baseDisplay}
+                <DynamicRadar
+                  data={[
+                    { name: '头脑', current: baseDisplay.mind, predicted: previewDisplay?.mind },
+                    { name: '情感', current: baseDisplay.emotion, predicted: previewDisplay?.emotion },
+                    { name: '好奇', current: baseDisplay.curiosity, predicted: previewDisplay?.curiosity },
+                    { name: '力量', current: baseDisplay.power, predicted: previewDisplay?.power },
+                    { name: '闪光', current: baseDisplay.sparkle, predicted: previewDisplay?.sparkle },
+                  ]}
                   maxValue={100}
-                  color={accentColor}
-                  size={180}
-                  previewValues={previewDisplay}
-                  previewColor="#86efac"
+                  currentColor={accentColor}
+                  size={200}
+                  ariaLabel={`${pet.name}五维能力${selectedFoods.length > 0 ? '预览' : ''}`}
                 />
               </div>
               {selectedFoods.length > 0 && (

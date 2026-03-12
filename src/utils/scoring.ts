@@ -7,7 +7,7 @@
  *  - Feeding stat preview / prediction
  */
 
-import type { PetId, ContestId, FoodId, DimValues } from '../types';
+import type { Pet, PetId, ContestId, FoodId, DimValues } from '../types';
 import { PETS, CONTESTS, FOODS } from '../data/gameData';
 import { calculateFoodBonus } from './gameLogic';
 
@@ -43,7 +43,17 @@ export function scoreToGrade(score: number): string {
 
 // ─── Mood tier mapping ───────────────────────────────────────────────────────
 
-export type MoodLevel = 'sad' | 'normal' | 'happy';
+export type MoodLevel = 'sad' | 'neutral' | 'happy';
+
+/** @deprecated Use 'neutral' instead of 'normal'. */
+export type LegacyMoodLevel = 'sad' | 'normal' | 'happy';
+
+/** Adapter: converts legacy 'normal' level strings to the canonical 'neutral'. */
+export function normalizeMoodLevel(level: string): MoodLevel {
+  if (level === 'normal') return 'neutral';
+  if (level === 'sad' || level === 'neutral' || level === 'happy') return level;
+  return 'neutral';
+}
 
 export interface MoodInfo {
   level: MoodLevel;
@@ -53,9 +63,9 @@ export interface MoodInfo {
 }
 
 const MOOD_TABLE: MoodInfo[] = [
-  { level: 'sad',    label: '难过', emoji: '😢', color: '#f44336' },
-  { level: 'normal', label: '一般', emoji: '😐', color: '#ff9800' },
-  { level: 'happy',  label: '高兴', emoji: '😊', color: '#4caf50' },
+  { level: 'sad',     label: '难过', emoji: '😢', color: '#f44336' },
+  { level: 'neutral', label: '一般', emoji: '😐', color: '#ff9800' },
+  { level: 'happy',   label: '高兴', emoji: '😊', color: '#4caf50' },
 ];
 
 /**
@@ -95,6 +105,27 @@ export function calcRecommendScore(petId: PetId, contestId: ContestId): number {
 export function getRankedPets(contestId: ContestId): Array<{ petId: PetId; score: number }> {
   return PETS.map(p => ({ petId: p.id, score: calcRecommendScore(p.id, contestId) }))
     .sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Compute an equal-weight 5-dimension recommendation score for a pet (0–100).
+ * Averages mind, emotion, curiosity, power, and sparkle (derived via buildDisplayStats).
+ * Does not mutate the pet object.
+ */
+export function computeRecommendation(pet: Pet): number {
+  const display = buildDisplayStats(pet.baseStats, pet.affection, 50);
+  const { mind, emotion, curiosity, power, sparkle } = display;
+  return Math.round(Math.min(100, (mind + emotion + curiosity + power + sparkle) / 5));
+}
+
+/**
+ * Map a 0–100 score to a rank grade: S ≥ 90, A ≥ 75, B ≥ 60, C < 60.
+ */
+export function mapScoreToRank(score: number): string {
+  if (score >= 90) return 'S';
+  if (score >= 75) return 'A';
+  if (score >= 60) return 'B';
+  return 'C';
 }
 
 // ─── Feeding stat prediction ─────────────────────────────────────────────────
